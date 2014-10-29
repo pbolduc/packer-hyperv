@@ -18,7 +18,7 @@ type StepMountDvdDrive struct {
 }
 
 func (s *StepMountDvdDrive) Run(state multistep.StateBag) multistep.StepAction {
-	config := state.Get("config").(*iso_config)
+	config := state.Get("config").(*config)
 	driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
 

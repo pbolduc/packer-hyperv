@@ -21,35 +21,45 @@ import (
 	"strings"
 )
 
-// EVALUATION EDITIONS
 const (
-	WS2012R2DC string 	= "WindowsServer2012R2Datacenter"
-	PRODUCT_DATACENTER_EVALUATION_SERVER int64 = 80
-	PRODUCT_DATACENTER_SERVER int64 = 8
+	DefaultDiskSize = 127
+	MinDiskSize = 10
+	MaxDiskSize = 65536
+
+	DefaultRamSize = 1024
+	MinRamSize = 512
+	MaxRamSize = 6538
 )
+
 
 // Builder implements packer.Builder and builds the actual Hyperv
 // images.
 type Builder struct {
-	config iso_config
+	config config
 	runner multistep.Runner
 }
 
-type iso_config struct {
+type config struct {
 	DiskSizeGB            uint     			`mapstructure:"disk_size_gb"`
 	RamSizeMB             uint     			`mapstructure:"ram_size_mb"`
+	FloppyFiles         []string            `mapstructure:"floppy_files"`	
 	GuestOSType         string   			`mapstructure:"guest_os_type"`
+	ISOChecksum         string              `mapstructure:"iso_checksum"`
+	ISOChecksumType     string              `mapstructure:"iso_checksum_type"`
+	ISOUrls             []string            `mapstructure:"iso_urls"`
+	VMName              string              `mapstructure:"vm_name"`
+
 	RawSingleISOUrl 	string 				`mapstructure:"iso_url"`
+
 	SleepTimeMinutes 	time.Duration		`mapstructure:"wait_time_minutes"`
 	ProductKey 			string				`mapstructure:"product_key"`
 
 	common.PackerConfig           			`mapstructure:",squash"`
 	hypervcommon.OutputConfig     			`mapstructure:",squash"`
 
-	VMName              string
 	SwitchName          string
 
-tpl *packer.ConfigTemplate
+	tpl *packer.ConfigTemplate
 }
 
 // Prepare processes the build configuration parameters.
@@ -75,35 +85,33 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	warnings := make([]string, 0)
 
 	if b.config.DiskSizeGB == 0 {
-		b.config.DiskSizeGB = 40
+		b.config.DiskSizeGB = DefaultDiskSize
 	}
 	log.Println(fmt.Sprintf("%s: %v", "DiskSize", b.config.DiskSizeGB))
 
-	if(b.config.DiskSizeGB < 10 ){
+	if(b.config.DiskSizeGB < MinDiskSize ){
 		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("disk_size_gb: Windows server requires disk space >= 10 GB, but defined: %v", b.config.DiskSizeGB))
-	} else if b.config.DiskSizeGB > 65536 {
+			fmt.Errorf("disk_size_gb: Windows server requires disk space >= %v GB, but defined: %v", MinDiskSize, b.config.DiskSizeGB))
+	} else if b.config.DiskSizeGB > MaxDiskSize {
 		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("disk_size_gb: Windows server requires disk space <= 65536 GB, but defined: %v", b.config.DiskSizeGB))
+			fmt.Errorf("disk_size_gb: Windows server requires disk space <= %v GB, but defined: %v", MaxDiskSize, b.config.DiskSizeGB))
 	}
 
 	if b.config.RamSizeMB == 0 {
-		b.config.RamSizeMB = 1024
+		b.config.RamSizeMB = DefaultRamSize
 	}
 
 	log.Println(fmt.Sprintf("%s: %v", "RamSize", b.config.RamSizeMB))
 
-	var ramMinMb uint = 512
-	var ramMaxMb uint = 6538
-
-	if(b.config.RamSizeMB < ramMinMb ){
+	if(b.config.RamSizeMB < MinRamSize ){
 		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("ram_size_mb: Windows server requires memory size >= %v MB, but defined: %v", ramMinMb, b.config.RamSizeMB))
-	} else if b.config.RamSizeMB > ramMaxMb {
+			fmt.Errorf("ram_size_mb: Windows server requires memory size >= %v MB, but defined: %v", MinRamSize, b.config.RamSizeMB))
+	} else if b.config.RamSizeMB > MaxRamSize {
 		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("ram_size_mb: Windows server requires memory size <= %v MB, but defined: %v", ramMaxMb, b.config.RamSizeMB))
+			fmt.Errorf("ram_size_mb: Windows server requires memory size <= %v MB, but defined: %v", MaxRamSize, b.config.RamSizeMB))
 	}
 
+	// todo: get host memory using PowerShell: Invoke-Command -ScriptBlock { (Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024
 	warnings = appendWarnings( warnings, fmt.Sprintf("Hyper-V might fail to create a VM if there is no available memory in the system."))
 
 
@@ -143,6 +151,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 		}
 	}
 
+	// TODO: remove product key, use Autounattend.xml on a floppy instead
 	pk := strings.TrimSpace(b.config.ProductKey)
 	if len(pk) != 0 {
 		pattern := "^[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}-[A-Z0-9]{5}$"
@@ -162,7 +171,6 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	log.Println(fmt.Sprintf("%s: %v","ProductKey", b.config.ProductKey))
 
 
-
 	if b.config.RawSingleISOUrl == "" {
 		errs = packer.MultiErrorAppend(errs, errors.New("iso_url: The option can't be missed and a path must be specified."))
 	}else if _, err := os.Stat(b.config.RawSingleISOUrl); err != nil {
@@ -171,25 +179,26 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 	log.Println(fmt.Sprintf("%s: %v","RawSingleISOUrl", b.config.RawSingleISOUrl))
 
-	guestOSTypesIsValid := false
-	guestOSTypes := []string{
-		WS2012R2DC,
-//		WS2012R2St,
-	}
 
-	log.Println(fmt.Sprintf("%s: %v","GuestOSType", b.config.GuestOSType))
+// 	guestOSTypesIsValid := false
+// 	guestOSTypes := []string{
+// 		WS2012R2DC,
+// //		WS2012R2St,
+// 	}
 
-	for _, guestType := range guestOSTypes {
-		if b.config.GuestOSType == guestType {
-			guestOSTypesIsValid = true
-			break
-		}
-	}
+// 	log.Println(fmt.Sprintf("%s: %v","GuestOSType", b.config.GuestOSType))
 
-	if !guestOSTypesIsValid {
-		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("guest_os_type: The value is invalid. Must be one of: %v", guestOSTypes))
-	}
+// 	for _, guestType := range guestOSTypes {
+// 		if b.config.GuestOSType == guestType {
+// 			guestOSTypesIsValid = true
+// 			break
+// 		}
+// 	}
+
+// 	if !guestOSTypesIsValid {
+// 		errs = packer.MultiErrorAppend(errs,
+// 			fmt.Errorf("guest_os_type: The value is invalid. Must be one of: %v", guestOSTypes))
+// 	}
 
 	if errs != nil && len(errs.Errors) > 0 {
 		return warnings, errs
@@ -226,9 +235,9 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 			Path:  b.config.OutputDir,
 		},
 
-		&hypervcommon.StepCreateSwitch{
-			SwitchName: b.config.SwitchName,
-		},
+		&common.StepCreateFloppy{ Files: b.config.FloppyFiles },
+		&hypervcommon.StepCreateSwitch{ SwitchName: b.config.SwitchName },
+
 		new(StepCreateVM),
 		new(hypervcommon.StepEnableIntegrationService),
 		new(StepMountDvdDrive),
@@ -240,7 +249,7 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		new(hypervcommon.StepConfigureIp),
 		new(hypervcommon.StepSetRemoting),
 		new(common.StepProvision),
-		new(StepInstallProductKey),
+//		new(StepInstallProductKey),
 
 		new(StepExportVm),
 
