@@ -22,6 +22,7 @@ const (
 // Produces:
 //   SwitchName string - The name of the Switch
 type StepCreateSwitch struct {
+	// Specifies the name of the switch to be created.
 	SwitchName     string
 	// Specifies the type of the switch to be created. Allowed values are Internal and Private. To create an External
 	// virtual switch, specify either the NetAdapterInterfaceDescription or the NetAdapterName parameter, which
