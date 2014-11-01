@@ -91,7 +91,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 	if(b.config.DiskSize < MinDiskSize ){
 		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("disk_size_gb: Windows server requires disk space >= %v GB, but defined: %v", MinDiskSize, b.config.DiskSize /1024))
+			fmt.Errorf("disk_size_gb: Windows server requires disk space >= %v GB, but defined: %v", MinDiskSize, b.config.DiskSize/1024))
 	} else if b.config.DiskSize > MaxDiskSize {
 		errs = packer.MultiErrorAppend(errs,
 			fmt.Errorf("disk_size_gb: Windows server requires disk space <= %v GB, but defined: %v", MaxDiskSize, b.config.DiskSize/1024))
@@ -113,7 +113,6 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 	// todo: get host memory using PowerShell: Invoke-Command -ScriptBlock { (Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024
 	warnings = appendWarnings( warnings, fmt.Sprintf("Hyper-V might fail to create a VM if there is no available memory in the system."))
-
 
 	if b.config.VMName == "" {
 		b.config.VMName = fmt.Sprintf("pvm_%s", uuid.New())

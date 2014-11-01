@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 type StepEnableIntegrationService struct {
@@ -22,7 +23,7 @@ func (s *StepEnableIntegrationService) Run(state multistep.StateBag) multistep.S
 
 	ui.Say("Enabling Integration Service...")
 
-	powershell, err := NewPowerShellv4()
+	powershell, err := powershell.Command()
 	ps1, err := Asset("scripts/Enable-VMIntegrationService.ps1")
 	if err != nil {
 		err := fmt.Errorf("Could not load script scripts/Enable-VMIntegrationService.ps1: %s", err)

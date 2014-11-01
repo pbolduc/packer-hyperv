@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"bytes"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 type HypervPS4Driver struct {
@@ -114,18 +115,15 @@ func (d *HypervPS4Driver) verifyElevatedMode() error {
 
 	log.Printf("Enter method: %s", "verifyElevatedMode")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {function foo(){try{")
-	blockBuffer.WriteString("$myWindowsID=[System.Security.Principal.WindowsIdentity]::GetCurrent();")
-	blockBuffer.WriteString("$myWindowsPrincipal=new-object System.Security.Principal.WindowsPrincipal($myWindowsID);")
-	blockBuffer.WriteString("$adminRole=[System.Security.Principal.WindowsBuiltInRole]::Administrator;")
-	blockBuffer.WriteString("if($myWindowsPrincipal.IsInRole($adminRole)){return $true}else{return $false}")
-	blockBuffer.WriteString("}catch{return $false}} foo}")
+	powershell, err := powershell.Command()
 
-	log.Printf(" blockBuffer: %s", blockBuffer.String())
-	cmd := exec.Command(d.HypervManagePath, blockBuffer.String())
+	ps1, err := Asset("scripts/IsAdministrator.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/IsAdministrator.ps1: %s", err)
+		return err
+	}
 
-	cmdOut, err := cmd.Output()
+	cmdOut, err := powershell.OutputFile(ps1);
 	if err != nil {
 		return err
 	}

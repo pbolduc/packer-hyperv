@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"github.com/mitchellh/multistep"
 	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+
 	"github.com/mitchellh/packer/packer"
 )
 
@@ -31,7 +33,7 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 //	path :=	config.OutputDir
 	path :=	state.Get("packerTempDir").(string)
 
-	powershell, err := hypervcommon.NewPowerShellv4()
+	powershell, err := powershell.Command()
 	ps1, err := hypervcommon.Asset("scripts/New-VM.ps1")
 	if err != nil {
 		err := fmt.Errorf("Could not load script scripts/New-VM.ps1: %s", err)
@@ -39,6 +41,8 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 		return multistep.ActionHalt
 	}
 
+
+	// convert the MB to bytes
 	ramBytes := int64(config.RamSizeMB * 1024 * 1024)
 	diskSizeBytes := int64(config.DiskSize * 1024 * 1024)
 
