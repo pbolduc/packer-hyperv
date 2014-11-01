@@ -1,6 +1,6 @@
-param([string]$vmName, [string]$Path, [long]$MemoryStartupBytes, [long]$NewVHDSizeBytes, [string]$SwitchName)
+param([string]$vmName, [string]$path, [long]$memoryStartupBytes, [long]$newVHDSizeBytes, [string]$switchName)
 
 $vhdx = $vmName + ".vhdx"
-$vhdPath = Join-Path -Path $Path -ChildPath $vhdx
+$vhdPath = Join-Path -Path $path -ChildPath $vhdx
 
-New-VM -Name $vmName -Path $Path -MemoryStartupBytes $MemoryStartupBytes -NewVHDPath $vhdPath -NewVHDSizeBytes $NewVHDSizeBytes -SwitchName $SwitchName
+New-VM -Name $vmName -Path $path -MemoryStartupBytes $memoryStartupBytes -NewVHDPath $vhdPath -NewVHDSizeBytes $newVHDSizeBytes -SwitchName $switchName

@@ -7,6 +7,7 @@ package iso
 import (
 	"fmt"
 	"bytes"
+	"strconv"
 	"github.com/mitchellh/multistep"
 	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	"github.com/mitchellh/packer/packer"
@@ -22,7 +23,6 @@ type StepCreateVM struct {
 
 func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	config := state.Get("config").(*config)
-	driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	ui.Say("Creating virtual machine...")
@@ -31,29 +31,22 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 //	path :=	config.OutputDir
 	path :=	state.Get("packerTempDir").(string)
 
-	ram := config.RamSizeMB
-	diskSize := config.DiskSize
+	powershell, err := hypervcommon.NewPowerShellv4()
+	ps1, err := hypervcommon.Asset("scripts/New-VM.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/New-VM.ps1: %s", err)
+		state.Put("error", err)
+		return multistep.ActionHalt
+	}
+
+	ramBytes := int64(config.RamSizeMB * 1024 * 1024)
+	diskSizeBytes := int64(config.DiskSize * 1024 * 1024)
+
+	ram := strconv.FormatInt(ramBytes, 10)
+	diskSize := strconv.FormatInt(diskSizeBytes, 10)
 	switchName := config.SwitchName
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {New-VM -Name '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Path '")
-	blockBuffer.WriteString(path)
-	blockBuffer.WriteString("' -MemoryStartupBytes ")
-	blockBuffer.WriteString(fmt.Sprintf("%vMB",ram))
-	blockBuffer.WriteString(" -NewVHDPath '")
-	blockBuffer.WriteString(path)
-	blockBuffer.WriteString("/")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString(".vhdx'")
-	blockBuffer.WriteString(" -NewVHDSizeBytes ")
-	blockBuffer.WriteString(fmt.Sprintf("%vGB", diskSize / 1024))
-	blockBuffer.WriteString(" -SwitchName '")
-	blockBuffer.WriteString(switchName)
-	blockBuffer.WriteString("'}")
-
-	err := driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(ps1, vmName, path, ram, diskSize, switchName)
 
 	if err != nil {
 		err := fmt.Errorf("Error creating virtual machine: %s", err)
