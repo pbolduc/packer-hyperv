@@ -6,7 +6,6 @@ package common
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 )
@@ -16,7 +15,6 @@ type StepEnableIntegrationService struct {
 }
 
 func (s *StepEnableIntegrationService) Run(state multistep.StateBag) multistep.StepAction {
-	driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	vmName := state.Get("vmName").(string)
@@ -24,14 +22,15 @@ func (s *StepEnableIntegrationService) Run(state multistep.StateBag) multistep.S
 
 	ui.Say("Enabling Integration Service...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Enable-VMIntegrationService -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Name '")
-	blockBuffer.WriteString(s.name)
-	blockBuffer.WriteString("'}")
+	powershell, err := NewPowerShellv4()
+	ps1, err := Asset("scripts/Enable-VMIntegrationService.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/Enable-VMIntegrationService.ps1: %s", err)
+		state.Put("error", err)
+		return multistep.ActionHalt
+	}
 
-	err := driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(ps1, vmName, s.name)
 
 	if err != nil {
 		err := fmt.Errorf("Error enabling Integration Service: %s", err)
