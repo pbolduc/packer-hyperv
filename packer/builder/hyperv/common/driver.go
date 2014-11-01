@@ -20,7 +20,6 @@ type Driver interface {
 	// properly. If there is any indication the driver can't function,
 	// this will return an error.
 	Verify() error
-
 }
 
 

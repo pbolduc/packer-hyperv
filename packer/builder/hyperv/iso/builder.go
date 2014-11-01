@@ -22,13 +22,13 @@ import (
 )
 
 const (
-	DefaultDiskSize = 127
-	MinDiskSize = 10
-	MaxDiskSize = 65536
+	DefaultDiskSize = 127 * 1024	// 127GB
+	MinDiskSize = 10 * 1024			// 10GB
+	MaxDiskSize = 65536 * 1024		// 64TB
 
-	DefaultRamSize = 1024
-	MinRamSize = 512
-	MaxRamSize = 6538
+	DefaultRamSize = 1024	// 1GB
+	MinRamSize = 512		// 512MB
+	MaxRamSize = 32768 		// 32GB
 )
 
 
@@ -40,8 +40,8 @@ type Builder struct {
 }
 
 type config struct {
-	DiskSizeGB            uint     			`mapstructure:"disk_size_gb"`
-	RamSizeMB             uint     			`mapstructure:"ram_size_mb"`
+	DiskSize            uint     			`mapstructure:"disk_size"`
+	RamSizeMB           uint     			`mapstructure:"ram_size_mb"`
 	FloppyFiles         []string            `mapstructure:"floppy_files"`	
 	GuestOSType         string   			`mapstructure:"guest_os_type"`
 	ISOChecksum         string              `mapstructure:"iso_checksum"`
@@ -84,17 +84,17 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	errs = packer.MultiErrorAppend(errs, b.config.OutputConfig.Prepare(b.config.tpl, &b.config.PackerConfig)...)
 	warnings := make([]string, 0)
 
-	if b.config.DiskSizeGB == 0 {
-		b.config.DiskSizeGB = DefaultDiskSize
+	if b.config.DiskSize == 0 {
+		b.config.DiskSize = DefaultDiskSize
 	}
-	log.Println(fmt.Sprintf("%s: %v", "DiskSize", b.config.DiskSizeGB))
+	log.Println(fmt.Sprintf("%s: %v", "DiskSize", b.config.DiskSize))
 
-	if(b.config.DiskSizeGB < MinDiskSize ){
+	if(b.config.DiskSize < MinDiskSize ){
 		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("disk_size_gb: Windows server requires disk space >= %v GB, but defined: %v", MinDiskSize, b.config.DiskSizeGB))
-	} else if b.config.DiskSizeGB > MaxDiskSize {
+			fmt.Errorf("disk_size_gb: Windows server requires disk space >= %v GB, but defined: %v", MinDiskSize, b.config.DiskSize /1024))
+	} else if b.config.DiskSize > MaxDiskSize {
 		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("disk_size_gb: Windows server requires disk space <= %v GB, but defined: %v", MaxDiskSize, b.config.DiskSizeGB))
+			fmt.Errorf("disk_size_gb: Windows server requires disk space <= %v GB, but defined: %v", MaxDiskSize, b.config.DiskSize/1024))
 	}
 
 	if b.config.RamSizeMB == 0 {
@@ -223,12 +223,7 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 	state.Put("hook", hook)
 	state.Put("ui", ui)
 
-// TODO: remove the next line
-//	state.Put("vmName", "FullActiavated")
-
 	steps := []multistep.Step{
-//		new(hypervcommon.StepAcceptEula),
-
 		new(hypervcommon.StepCreateTempDir),
 		&hypervcommon.StepOutputDir{
 			Force: b.config.PackerForce,

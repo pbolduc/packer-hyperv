@@ -32,7 +32,7 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	path :=	state.Get("packerTempDir").(string)
 
 	ram := config.RamSizeMB
-	diskSize := config.DiskSizeGB
+	diskSize := config.DiskSize
 	switchName := config.SwitchName
 
 	var blockBuffer bytes.Buffer
@@ -48,7 +48,7 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	blockBuffer.WriteString(vmName)
 	blockBuffer.WriteString(".vhdx'")
 	blockBuffer.WriteString(" -NewVHDSizeBytes ")
-	blockBuffer.WriteString(fmt.Sprintf("%vGB",diskSize))
+	blockBuffer.WriteString(fmt.Sprintf("%vGB", diskSize / 1024))
 	blockBuffer.WriteString(" -SwitchName '")
 	blockBuffer.WriteString(switchName)
 	blockBuffer.WriteString("'}")

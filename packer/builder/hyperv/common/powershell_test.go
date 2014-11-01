@@ -2,8 +2,10 @@
 
 package common
 
-import "testing"
-
+import (
+	"bytes"
+	"testing"
+)
 
 func TestOutputScriptBlock(t *testing.T) {
 
@@ -50,4 +52,21 @@ func TestVersion(t *testing.T) {
 	if (version != 4) {
 		t.Fatalf("expected version 4")
 	}
+}
+
+func TestRunFile(t *testing.T) {
+	powershell, err := NewPowerShellv4()
+	if err != nil {
+		t.Fatalf("should not have error: %s", err)
+	}
+
+	var blockBuffer bytes.Buffer
+	blockBuffer.WriteString("param([string]$a, [string]$b, [int]$x, [int]$y) $n = $x + $y; Write-Host $a, $b, $n")
+
+	err = powershell.RunFile(blockBuffer.Bytes(), "a", "b", "5", "10")
+
+	if err != nil {
+		t.Fatalf("should not have error: %s", err)
+	}
+
 }

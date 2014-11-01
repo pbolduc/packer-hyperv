@@ -7,17 +7,19 @@ package common
 import (
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"strconv"
 	"bytes"
+	"io/ioutil"
 )
 
 type PowerShell interface {
 	Output(string) (string, error)
 	OutputScriptBlock(string) (string, error)
 	RunScriptBlock(string) (error)
-
+	RunFile(fileContents []byte, params ...string) (error)
 	Version() (int64, error)
 }
 
@@ -45,11 +47,11 @@ func (ps *PowerShellv4) Output(args string) (string, error) {
 
 	var stdout, stderr bytes.Buffer
 
-	script := exec.Command(ps.PowerShellPath, args)
-	script.Stdout = &stdout
-	script.Stderr = &stderr
+	powershellCommand := exec.Command(ps.PowerShellPath, args)
+	powershellCommand.Stdout = &stdout
+	powershellCommand.Stderr = &stderr
 
-	err := script.Run()
+	err := powershellCommand.Run()
 
 	stderrString := strings.TrimSpace(stderr.String())
 
@@ -81,6 +83,50 @@ func (ps *PowerShellv4) OutputScriptBlock(scriptBlock string) (string, error) {
 func (ps *PowerShellv4) RunScriptBlock(scriptBlock string) (error) {
 	_, err := ps.OutputScriptBlock(scriptBlock);
 	return err;
+}
+
+func (ps *PowerShellv4) RunFile(fileContents []byte, params ...string) (error) {
+	file, err := ioutil.TempFile(os.TempDir(), "ps")
+	file.Write(fileContents)
+	err = file.Close()
+
+	newFilename := file.Name() + ".ps1"
+	os.Rename(file.Name(), newFilename)
+	defer os.Remove(newFilename)
+	
+	args := make([]string,len(params)+2)
+	args[0] = "-File"
+	args[1] = newFilename
+
+	for key, value := range params {
+		args[key+2] = value
+	}
+
+	log.Printf("Run: %s %s", ps.PowerShellPath, args)
+
+	var stdout, stderr bytes.Buffer
+	powershellCommand := exec.Command(ps.PowerShellPath, args...)
+	powershellCommand.Stdout = &stdout
+	powershellCommand.Stderr = &stderr
+
+	err = powershellCommand.Run()
+
+	stderrString := strings.TrimSpace(stderr.String())
+
+	if _, ok := err.(*exec.ExitError); ok {
+		err = fmt.Errorf("PowerShell error: %s", stderrString)
+	}
+
+	if len(stderrString) > 0 {
+		err = fmt.Errorf("PowerShell error: %s", stderrString)
+	}
+
+	stdoutString := strings.TrimSpace(stdout.String())
+
+	log.Printf("stdout: %s", stdoutString)
+	log.Printf("stderr: %s", stderrString)
+
+	return err;	
 }
 
 // Version gets the version of PowerShell
