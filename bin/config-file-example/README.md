@@ -2,7 +2,7 @@
 
 ## Requirements
 
-1. Download and extract Packer 0.7.1 or 0.7.2 for Windows
+1. Download and extract [Packer for Windows](https://packer.io/downloads.html)
 2. Set environment variable PACKER_HOME to point to where your Packer.IO environment is.
 3. Run packer example batch file using an Administrative command prompt
 
