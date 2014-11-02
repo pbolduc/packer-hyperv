@@ -43,7 +43,6 @@ type config struct {
 	DiskSize            uint     			`mapstructure:"disk_size"`
 	RamSizeMB           uint     			`mapstructure:"ram_size_mb"`
 	FloppyFiles         []string            `mapstructure:"floppy_files"`	
-	GuestOSType         string   			`mapstructure:"guest_os_type"`
 	ISOChecksum         string              `mapstructure:"iso_checksum"`
 	ISOChecksumType     string              `mapstructure:"iso_checksum_type"`
 	ISOUrls             []string            `mapstructure:"iso_urls"`

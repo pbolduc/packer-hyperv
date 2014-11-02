@@ -150,7 +150,7 @@ func (p *Provisioner) Provision(ui packer.Ui, comm packer.Communicator) error {
 			var duration time.Duration = 1
 			sleepTime := time.Minute * duration
 
-			ui.Say("Checking PS remouting is ready...")
+			ui.Say("Checking PS remoting is ready...")
 
 			for count > 0 {
 				err = comm.Start(&cmd)

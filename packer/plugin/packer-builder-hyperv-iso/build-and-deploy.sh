@@ -1,2 +1,3 @@
 go build
-cp packer-builder-hyperv-iso.exe /C/tools/packer-0.7.1/
+cp packer-builder-hyperv-iso.exe ../../../bin/
+

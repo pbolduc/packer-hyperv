@@ -11,7 +11,6 @@
 	"builders": [
 		{
 			"type": "hyperv-iso",
-			"guest_os_type":"WindowsServer2012R2Datacenter",
 			"product_key" : "{{user `product_key`}}",
 			"iso_url": "{{ user `iso_url` }}",
 			"iso_checksum": "{{ user `iso_checksum` }}",
