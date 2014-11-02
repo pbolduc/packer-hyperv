@@ -6,16 +6,15 @@ package common
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 type StepStartVm struct {
 }
 
 func (s *StepStartVm) Run(state multistep.StateBag) multistep.StepAction {
-	driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	errorMsg := "Error starting vm: %s"
@@ -23,12 +22,15 @@ func (s *StepStartVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Starting vm...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Start-VM '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("'}")
+	powershell, err := powershell.Command()
+	ps1, err := Asset("scripts/Start-VM.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/Start-VM.ps1: %s", err)
+		state.Put("error", err)
+		return multistep.ActionHalt
+	}
 
-	err := driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(ps1, vmName)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -41,20 +43,19 @@ func (s *StepStartVm) Run(state multistep.StateBag) multistep.StepAction {
 }
 
 func (s *StepStartVm) Cleanup(state multistep.StateBag) {
-	driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 	vmName := state.Get("vmName").(string)
 	ui.Say("Stopping virtual machine...")
 
-	var err error = nil
+	powershell, err := powershell.Command()
+	ps1, err := Asset("scripts/Stop-VM.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/Stop-VM.ps1: %s", err)
+		state.Put("error", err)
+		return		
+	}
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Stop-VM '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Force}")
-
-	err = driver.HypervManage( blockBuffer.String() )
-
+	err = powershell.RunFile(ps1, vmName)
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error stopping virtual machine: %s", err))
 	}

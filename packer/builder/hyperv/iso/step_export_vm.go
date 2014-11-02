@@ -6,11 +6,11 @@ package iso
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	"path/filepath"
 	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 	"io/ioutil"
 )
 
@@ -24,7 +24,6 @@ type StepExportVm struct {
 
 func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 	config := state.Get("config").(*config)
-	driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	var err error
@@ -45,18 +44,19 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 	}
 
 	ui.Say("Exporting vm...")
-	errorMsg = "Error exporting vm: %s"
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {")
-	blockBuffer.WriteString("$vmName='" + vmName + "';")
-	blockBuffer.WriteString("$path='" + vmExportPath + "';")
-	blockBuffer.WriteString("Export-VM -Name $vmName -Path $path")
-	blockBuffer.WriteString("}")
+	powershell, err := powershell.Command()
+	ps1, err := hypervcommon.Asset("scripts/Export-VM.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/Export-VM.ps1: %s", err)
+		state.Put("error", err)
+		return multistep.ActionHalt
+	}
 
-	err = driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(ps1, vmName, vmExportPath)
 
 	if err != nil {
+		errorMsg = "Error exporting vm: %s"
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
 		ui.Error(err.Error())
@@ -64,27 +64,20 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 	}
 
 	// copy to output dir
+	expPath := filepath.Join(vmExportPath,vmName)
 
 	ui.Say("Coping to output dir...")
 
-	errorMsg = "Error copying vm: %s"
-
-	expPath := filepath.Join(vmExportPath,vmName)
-
-	blockBuffer.Reset()
-	blockBuffer.WriteString("Invoke-Command -scriptblock {")
-	blockBuffer.WriteString("$srcPath='" + expPath + "';")
-	blockBuffer.WriteString("$dstPath='" + outputPath + "';")
-	blockBuffer.WriteString("$vhdDirName='" + vhdDir + "';")
-	blockBuffer.WriteString("$vmDir='" + vmDir + "';")
-	blockBuffer.WriteString("cpi \"$srcPath\\$vhdDirName\"  $dstPath -recurse;")
-	blockBuffer.WriteString("cpi \"$srcPath\\$vmDir\"  \"$dstPath\";")
-	blockBuffer.WriteString("cpi \"$srcPath\\$vmDir\\*.xml\"  \"$dstPath\\$vmDir\";")
-	blockBuffer.WriteString("}")
-
-	err = driver.HypervManage( blockBuffer.String() )
-
+	ps1, err = hypervcommon.Asset("scripts/Copy-ExportedVM.ps1")
 	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/Copy-ExportedVM.ps1: %s", err)
+		state.Put("error", err)
+		return multistep.ActionHalt
+	}
+
+	err = powershell.RunFile(ps1, expPath, outputPath, vhdDir, vmDir)
+	if err != nil {
+		errorMsg = "Error exporting vm: %s"
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
 		ui.Error(err.Error())

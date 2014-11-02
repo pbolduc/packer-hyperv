@@ -240,9 +240,9 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		new(hypervcommon.StepStartVm),
 		&hypervcommon.StepSleep{ Minutes: b.config.SleepTimeMinutes, ActionName: "Installing" },
 
-		new(hypervcommon.StepConfigureIp),
-		new(hypervcommon.StepSetRemoting),
-		new(common.StepProvision),
+		// new(hypervcommon.StepConfigureIp),
+		// new(hypervcommon.StepSetRemoting),
+		// new(common.StepProvision),
 //		new(StepInstallProductKey),
 
 		new(StepExportVm),

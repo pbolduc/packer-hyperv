@@ -6,16 +6,15 @@ package common
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 type StepStopVm struct {
 }
 
 func (s *StepStopVm) Run(state multistep.StateBag) multistep.StepAction {
-	driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	errorMsg := "Error stopping vm: %s"
@@ -23,13 +22,15 @@ func (s *StepStopVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Stopping vm...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Stop-VM '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("'}")
+	powershell, err := powershell.Command()
+	ps1, err := Asset("scripts/Stop-VM.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/Stop-VM.ps1: %s", err)
+		state.Put("error", err)
+		return multistep.ActionHalt
+	}
 
-	err := driver.HypervManage( blockBuffer.String() )
-
+	err = powershell.RunFile(ps1, vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
