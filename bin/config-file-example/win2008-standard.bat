@@ -1,6 +1,9 @@
 @ECHO OFF
 SETLOCAL
 
+SET ISO_URL=iso\en_windows_server_2008_datacenter_enterprise_standard_sp2_x86_dvd_342333.iso
+SET ISO_CHECKSUM=
+
 IF "%PACKER_HOME%" == "" (
 	@ECHO.
 	@ECHO Please set PACKER_HOME
@@ -22,9 +25,6 @@ IF NOT EXIST "%PACKER_HOME%\packer-builder-hyperv-iso.exe" (
  )
 
 PATH=%PACKER_HOME%;%PATH%
-
-SET ISO_URL=iso\en_windows_server_2008_datacenter_enterprise_standard_sp2_x86_dvd_342333.iso
-SET ISO_CHECKSUM=
 
 IF NOT EXIST "%ISO_URL%" (
     @ECHO.
