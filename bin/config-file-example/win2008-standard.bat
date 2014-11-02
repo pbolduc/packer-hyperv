@@ -34,4 +34,6 @@ IF NOT EXIST "%ISO_URL%" (
 	GOTO :eof
 )
 
+IF NOT EXIST "box" MKDIR box
+
 packer.exe build -only=hyperv-iso -var "iso_url=%ISO_URL%" -var "iso_checksum=%ISO_CHECKSUM%" win2008-standard.json
