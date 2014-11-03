@@ -3,8 +3,10 @@
 ## Requirements
 
 1. Download and extract [Packer for Windows](https://packer.io/downloads.html)
-2. Set environment variable PACKER_HOME to point to where your Packer.IO environment is.
-3. Run packer example batch file using an Administrative command prompt
+2. Set environment variable PACKER_HOME to point to where your Packer.IO executables are.
+3. Copy your ISO to the **iso** folder
+4. (optional) Edit batch file to use your ISO file name and/or PATH
+5. Run packer example batch file using an Administrative command prompt
 
 ## Basic Examples
 
@@ -14,6 +16,7 @@ This example creates Windows Server 2008 Standard vagrant box.
 
 * **win2008-standard.json** This is as basic as the configuration can be. The VM will have
   * 127GB hard disk and 1GB RAM
+  * Internal network card (dynamically created and destroyed)
   * floppy/win2008-standard/Autounattend.xml sets
     * Creates an administrator user with **username**: vagrant, **password**: vagrant
 	* Sets the install and UI language to us-en
