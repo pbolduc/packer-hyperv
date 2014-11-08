@@ -23,7 +23,7 @@ func (s *StepStopVm) Run(state multistep.StateBag) multistep.StepAction {
 	ui.Say("Stopping vm...")
 
 	powershell, err := powershell.Command()
-	ps1, err := Asset("scripts/Stop-VM.ps1")
+	ps1, err := Asset("scripts/stop_vm.ps1")
 	if err != nil {
 		err := fmt.Errorf("Could not load script scripts/Stop-VM.ps1: %s", err)
 		state.Put("error", err)

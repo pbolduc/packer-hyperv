@@ -11,11 +11,6 @@ package common
 // versions out of the builder steps, so sometimes the methods are
 // extremely specific.
 type Driver interface {
-
-	// HypervManage executes the given HypervManage command
-	HypervManage(string) error
-
-
 	// Verify checks to make sure that this driver should function
 	// properly. If there is any indication the driver can't function,
 	// this will return an error.

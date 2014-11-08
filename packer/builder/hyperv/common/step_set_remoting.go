@@ -9,7 +9,8 @@ import (
 	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	"github.com/MSOpenTech/packer-hyperv/packer/communicator/powershell"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/communicator/powershell"
+	ps "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 type StepSetRemoting struct {
@@ -17,22 +18,23 @@ type StepSetRemoting struct {
 }
 
 func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
-	driver := state.Get("driver").(Driver)
+	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	errorMsg := "Error StepRemoteSession: %s"
 	vmName := state.Get("vmName").(string)
 	ip := state.Get("ip").(string)
 
+	ps, _ := ps.Command()
+
 	ui.Say("Adding to TrustedHosts (require elevated mode)")
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock { Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts '")
-	blockBuffer.WriteString(ip)
-	blockBuffer.WriteString("' -Force }")
+	blockBuffer.WriteString("param([string]$ip)")
+	blockBuffer.WriteString("Invoke-Command -scriptblock { Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts $ip -Force }")
 
 	var err error
-	err = driver.HypervManage(blockBuffer.String())
+	err = ps.RunFile(blockBuffer.Bytes(), ip)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)

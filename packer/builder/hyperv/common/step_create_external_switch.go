@@ -9,9 +9,9 @@ import (
 	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	"os/exec"
 	"strings"
 	"code.google.com/p/go-uuid/uuid"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 // This step creates switch for VM.
@@ -24,25 +24,26 @@ type StepCreateExternalSwitch struct {
 }
 
 func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepAction {
-	driver := state.Get("driver").(Driver)
+	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	vmName := state.Get("vmName").(string)
 	errorMsg := "Error createing external switch: %s"
 	var err error
 
+	powershell, _ := powershell.Command()
+
 	ui.Say("Creating external switch...")
 
 	packerExternalSwitchName := "paes_" + uuid.New()
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {")
-	blockBuffer.WriteString("$extSwitchName='"+ packerExternalSwitchName +"';")
-	blockBuffer.WriteString("$vmName='"+ vmName +"';")
-	blockBuffer.WriteString("$switch=$null; $names=@('ethernet','wi-fi','foo'); $adapters=foreach($name in $names){Get-NetAdapter -physical -Name $name -ErrorAction SilentlyContinue | where status -eq 'up' }foreach($adapter in $adapters){$switch=Get-VMSwitch –SwitchType External | where {$_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription};if($switch -eq $null){$switch=New-VMSwitch -Name $extSwitchName -NetAdapterName $adapter.Name -AllowManagementOS $true -Notes 'Parent OS, VMs, WiFi'};if($switch -ne $null){break}};if($switch -ne $null){Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter -VMSwitch $switch } else{ Write-Error 'No internet adapters found'}")
-	blockBuffer.WriteString("}")
+	blockBuffer.WriteString("param([string]$vmName,[string]$switchName)")
+	blockBuffer.WriteString("$switch=$null")
+	blockBuffer.WriteString("$names=@('ethernet','wi-fi','foo')")
+	blockBuffer.WriteString("$adapters=foreach($name in $names){Get-NetAdapter -physical -Name $name -ErrorAction SilentlyContinue | where status -eq 'up' }foreach($adapter in $adapters){$switch=Get-VMSwitch –SwitchType External | where {$_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription};if($switch -eq $null){$switch=New-VMSwitch -Name $switchName -NetAdapterName $adapter.Name -AllowManagementOS $true -Notes 'Parent OS, VMs, WiFi'};if($switch -ne $null){break}};if($switch -ne $null){Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter -VMSwitch $switch } else{ Write-Error 'No internet adapters found'}")
 
-	err = driver.HypervManage(blockBuffer.String())
+	err = powershell.RunFile(blockBuffer.Bytes(), vmName, packerExternalSwitchName)
 
 	if err != nil {
 		err := fmt.Errorf("Error creating switch: %s", err)
@@ -53,12 +54,11 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 	}
 
 	blockBuffer.Reset()
-	blockBuffer.WriteString("Invoke-Command -scriptblock {$adapter=Get-VMNetworkAdapter -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("'; $adapter.SwitchName}")
+	blockBuffer.WriteString("param([string]$vmName)")
+	blockBuffer.WriteString("(Get-VMNetworkAdapter -VMName $vmName).SwitchName}")
 
-	cmd := exec.Command("powershell", blockBuffer.String())
-	cmdOut, err := cmd.Output()
+	
+	cmdOut, err := powershell.OutputFile(blockBuffer.Bytes(), vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
@@ -94,9 +94,11 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 	if s.SwitchName == "" {
 		return
 	}
-	driver := state.Get("driver").(Driver)
+	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 	vmName := state.Get("vmName").(string)
+
+	powershell, _ := powershell.Command()
 
 	ui.Say("Unregistering and deleting external switch...")
 
@@ -111,13 +113,10 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 	}
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {")
-	blockBuffer.WriteString("$sn='" + s.oldSwitchName + "';")
-	blockBuffer.WriteString("$vmName='" + vmName + "';")
-	blockBuffer.WriteString("Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter –SwitchName $sn")
-	blockBuffer.WriteString("}")
+	blockBuffer.WriteString("param([string]$vmName,[string]$switchName)")
+	blockBuffer.WriteString("Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter –SwitchName $switchName")
 
-	err = driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(blockBuffer.Bytes(), vmName, s.oldSwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errMsg, err))
@@ -127,12 +126,10 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 	state.Put("SwitchName", s.oldSwitchName)
 
 	blockBuffer.Reset()
-	blockBuffer.WriteString("Invoke-Command -scriptblock {")
-	blockBuffer.WriteString("$sn='" + s.SwitchName + "';")
-	blockBuffer.WriteString("$TestSwitch = Get-VMSwitch -Name $sn -ErrorAction SilentlyContinue;if($TestSwitch -NE $null){Remove-VMSwitch $sn -Force}")
-	blockBuffer.WriteString("}")
+	blockBuffer.WriteString("param([string]$switchName)")
+	blockBuffer.WriteString("$TestSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue;if($TestSwitch -ne $null){Remove-VMSwitch $sn -Force}")
 
-	err = driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(blockBuffer.Bytes(), s.SwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errMsg, err))

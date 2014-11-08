@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 
@@ -20,23 +21,23 @@ type StepConfigureVlan struct {
 }
 
 func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
-	//	config := state.Get("config").(*config)
-	driver := state.Get("driver").(Driver)
+	//config := state.Get("config").(*config)
+	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	errorMsg := "Error configuring vlan: %s"
 	vmName := state.Get("vmName").(string)
 	switchName := state.Get("SwitchName").(string)
 
+	powershell, _ := powershell.Command()
+
 	ui.Say("Configuring vlan...")
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName '")
-	blockBuffer.WriteString(switchName)
-	blockBuffer.WriteString("' -Access -VlanId ")
-	blockBuffer.WriteString(vlanId)
+	blockBuffer.WriteString("param([string]$networkAdapterName,[string]$vlanId)")
+	blockBuffer.WriteString("Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $networkAdapterName -Access -VlanId $vlanId")
 
-	err := driver.HypervManage( blockBuffer.String() )
+	err := powershell.RunFile(blockBuffer.Bytes(), switchName, vlanId)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -46,12 +47,10 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 	}
 
 	blockBuffer.Reset()
-	blockBuffer.WriteString("Set-VMNetworkAdapterVlan -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Access -VlanId ")
-	blockBuffer.WriteString(vlanId)
+	blockBuffer.WriteString("param([string]$vmName,[string]$vlanId)")
+	blockBuffer.WriteString("Set-VMNetworkAdapterVlan -VMName $vmName -Access -VlanId $vlanId")
 
-	err = driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(blockBuffer.Bytes(), vmName, vlanId)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)

@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"bytes"
 	"github.com/mitchellh/multistep"
-	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	"github.com/mitchellh/packer/packer"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 
@@ -19,9 +19,10 @@ type StepMountDvdDrive struct {
 
 func (s *StepMountDvdDrive) Run(state multistep.StateBag) multistep.StepAction {
 	config := state.Get("config").(*config)
-	driver := state.Get("driver").(hypervcommon.Driver)
+	//driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
 
+	powershell, _ := powershell.Command()
 	errorMsg := "Error mounting dvd drive: %s"
 	vmName := state.Get("vmName").(string)
 	isoPath := config.RawSingleISOUrl
@@ -29,13 +30,10 @@ func (s *StepMountDvdDrive) Run(state multistep.StateBag) multistep.StepAction {
 	ui.Say("Mounting dvd drive...")
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Set-VMDvdDrive -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Path '")
-	blockBuffer.WriteString(isoPath)
-	blockBuffer.WriteString("'}")
+	blockBuffer.WriteString("param([string]$vmName,[string]$path)")
+	blockBuffer.WriteString("Set-VMDvdDrive -VMName $vmName -Path $path")
 
-	err := driver.HypervManage( blockBuffer.String() )
+	err := powershell.RunFile(blockBuffer.Bytes(), vmName, isoPath)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -54,10 +52,11 @@ func (s *StepMountDvdDrive) Cleanup(state multistep.StateBag) {
 		return
 	}
 
+	powershell, _ := powershell.Command()
 	errorMsg := "Error unmounting dvd drive: %s"
 
 	vmName := state.Get("vmName").(string)
-	driver := state.Get("driver").(hypervcommon.Driver)
+	//driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	ui.Say("Unmounting dvd drive...")
@@ -65,11 +64,10 @@ func (s *StepMountDvdDrive) Cleanup(state multistep.StateBag) {
 	var err error = nil
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Set-VMDvdDrive -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Path $null}")
+	blockBuffer.WriteString("param([string]$vmName)")
+	blockBuffer.WriteString("Set-VMDvdDrive -VMName $vmName -Path $null")
 
-	err = driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(blockBuffer.Bytes(), vmName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errorMsg, err))

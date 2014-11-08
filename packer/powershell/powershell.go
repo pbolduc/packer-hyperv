@@ -73,10 +73,14 @@ func (ps *PowerShellCmd) RunScriptBlock(scriptBlock string) (error) {
 }
 
 func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (string, error) {
-	filename := saveScript(fileContents);
+	filename, err := saveScript(fileContents);
+	if err != nil {
+		return "", err
+	}
+
 	defer os.Remove(filename)
 	
-	args := createFileArgs(filename, params...)
+	args := createArgs(filename, params...)
 
 	log.Printf("Run: %s %s", ps.PowerShellPath, args)
 
@@ -85,7 +89,7 @@ func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (stri
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 
-	err := command.Run()
+	err = command.Run()
 
 	stderrString := strings.TrimSpace(stderr.String())
 
@@ -121,38 +125,32 @@ func (ps *PowerShellCmd) Version() (int64, error) {
 	return ver, nil;	
 }
 
-// TODO: move outside of the powershell package
-func (ps *PowerShellCmd) GetFreePhysicalMemory(block string) (freePhysicalMemory float64, err error) {
-
-	output, err := ps.OutputScriptBlock("(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024");
-	if err != nil {
-		return 0, err
-	}
-
-	value, err := strconv.ParseFloat(output, 32)
-    return value, err
-}
-
-
-func saveScript(fileContents []byte) string {
+func saveScript(fileContents []byte) (string, error) {
 	// TODO: check error state (disk could be full)
-	file, _ := ioutil.TempFile(os.TempDir(), "ps")
+	file, err := ioutil.TempFile(os.TempDir(), "ps")
+	if err != nil {
+		return "", err
+	}
+	
 	file.Write(fileContents)
 	_ = file.Close()
 
 	newFilename := file.Name() + ".ps1"
 	os.Rename(file.Name(), newFilename)
 
-	return newFilename
+	return newFilename, nil
 }
 
-func createFileArgs(filename string, params ...string) []string {
-	args := make([]string,len(params)+2)
-	args[0] = "-File"
-	args[1] = filename
+func createArgs(filename string, params ...string) []string {
+	args := make([]string,len(params)+4)
+	args[0] = "-ExecutionPolicy"
+	args[1] = "Bypass"
+
+	args[2] = "-File"
+	args[3] = filename
 
 	for key, value := range params {
-		args[key+2] = value
+		args[key+4] = value
 	}	
 
 	return args;

@@ -6,10 +6,10 @@ package iso
 
 import (
 	"fmt"
-	"bytes"
 	"os"
 	"github.com/mitchellh/multistep"
 	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 	"github.com/mitchellh/packer/packer"
 	"log"
 	"io"
@@ -45,20 +45,20 @@ func (s *StepMountFloppydrive) Run(state multistep.StateBag) multistep.StepActio
 		return multistep.ActionHalt
 	}	
 
-	driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
 	vmName := state.Get("vmName").(string)
 
 	ui.Say("Mounting floppy drive...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Set-VMFloppyDiskDrive -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Path '")
-	blockBuffer.WriteString(floppyPath)
-	blockBuffer.WriteString("'}")
+	powershell, err := powershell.Command()
+	ps1, err := hypervcommon.Asset("scripts/mount_floppy_drive.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/mount_floppy_drive.ps1: %s", err)
+		state.Put("error", err)
+		return multistep.ActionHalt
+	}
 
-	err = driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(ps1, vmName, floppyPath)
 
 	if err != nil {
 		state.Put("error", fmt.Errorf("Error mounting floppy drive: %s", err))
@@ -78,19 +78,19 @@ func (s *StepMountFloppydrive) Cleanup(state multistep.StateBag) {
 	errorMsg := "Error unmounting floppy drive: %s"
 
 	vmName := state.Get("vmName").(string)
-	driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	ui.Say("Unmounting floppy drive...")
 
-	var err error = nil
+	powershell, err := powershell.Command()
+	ps1, err := hypervcommon.Asset("scripts/unmount_floppy_drive.ps1")
+	if err != nil {
+		err := fmt.Errorf("Could not load script scripts/unmount_floppy_drive.ps1: %s", err)
+		state.Put("error", err)
+		return
+	}
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Set-VMFloppyDiskDrive -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Path $null}")
-
-	err = driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(ps1, vmName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errorMsg, err))

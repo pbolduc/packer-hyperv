@@ -46,9 +46,9 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 	ui.Say("Exporting vm...")
 
 	powershell, err := powershell.Command()
-	ps1, err := hypervcommon.Asset("scripts/Export-VM.ps1")
+	ps1, err := hypervcommon.Asset("scripts/export_vm.ps1")
 	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/Export-VM.ps1: %s", err)
+		err := fmt.Errorf("Could not load script scripts/export_vm.ps1: %s", err)
 		state.Put("error", err)
 		return multistep.ActionHalt
 	}
@@ -68,9 +68,9 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Coping to output dir...")
 
-	ps1, err = hypervcommon.Asset("scripts/Copy-ExportedVM.ps1")
+	ps1, err = hypervcommon.Asset("scripts/copy_exported_vm.ps1")
 	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/Copy-ExportedVM.ps1: %s", err)
+		err := fmt.Errorf("Could not load script scripts/copy_exported_vm.ps1: %s", err)
 		state.Put("error", err)
 		return multistep.ActionHalt
 	}

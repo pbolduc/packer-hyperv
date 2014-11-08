@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 const (
@@ -35,25 +36,25 @@ type StepCreateSwitch struct {
 }
 
 func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
-	driver := state.Get("driver").(Driver)
+	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	if len(s.SwitchType) == 0 {
 		s.SwitchType = DefaultSwitchType
 	}
 
+	powershell, _ := powershell.Command()
+
 	ui.Say(fmt.Sprintf("Creating %v switch...", s.SwitchType))
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {$TestSwitch = Get-VMSwitch -Name '")
-	blockBuffer.WriteString(s.SwitchName)
-	blockBuffer.WriteString("' -ErrorAction SilentlyContinue; if ($TestSwitch.Count -eq 0){New-VMSwitch -Name '")
-	blockBuffer.WriteString(s.SwitchName)
-	blockBuffer.WriteString("' -SwitchType ")
-	blockBuffer.WriteString(s.SwitchType)
-	blockBuffer.WriteString(" }}")
+	blockBuffer.WriteString("param([string]$switchName,[string]$switchType)")
+	blockBuffer.WriteString("$switches = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue")
+	blockBuffer.WriteString("if ($switches.Count -eq 0) {")
+	blockBuffer.WriteString("  New-VMSwitch -Name $switchName -SwitchType $switchType")
+	blockBuffer.WriteString("}")
 
-	err := driver.HypervManage( blockBuffer.String() )
+	err := powershell.RunFile(blockBuffer.Bytes(), s.SwitchName, s.SwitchType)
 
 	if err != nil {
 		err := fmt.Errorf("Error creating switch: %s", err)
@@ -74,17 +75,18 @@ func (s *StepCreateSwitch) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	driver := state.Get("driver").(Driver)
+	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
+
+	powershell, _ := powershell.Command()
 
 	ui.Say("Unregistering and deleting switch...")
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Remove-VMSwitch '")
-	blockBuffer.WriteString(s.SwitchName)
-	blockBuffer.WriteString("' -Force}")
+	blockBuffer.WriteString("param([string]$switchName)")
+	blockBuffer.WriteString("Remove-VMSwitch $switchName -Force}")
 
-	err := driver.HypervManage( blockBuffer.String() )
+	err := powershell.RunFile(blockBuffer.Bytes(), s.SwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting switch: %s", err))

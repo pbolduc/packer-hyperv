@@ -23,7 +23,7 @@ func (s *StepStartVm) Run(state multistep.StateBag) multistep.StepAction {
 	ui.Say("Starting vm...")
 
 	powershell, err := powershell.Command()
-	ps1, err := Asset("scripts/Start-VM.ps1")
+	ps1, err := Asset("scripts/start_vm.ps1")
 	if err != nil {
 		err := fmt.Errorf("Could not load script scripts/Start-VM.ps1: %s", err)
 		state.Put("error", err)
@@ -48,7 +48,7 @@ func (s *StepStartVm) Cleanup(state multistep.StateBag) {
 	ui.Say("Stopping virtual machine...")
 
 	powershell, err := powershell.Command()
-	ps1, err := Asset("scripts/Stop-VM.ps1")
+	ps1, err := Asset("scripts/stop_vm.ps1")
 	if err != nil {
 		err := fmt.Errorf("Could not load script scripts/Stop-VM.ps1: %s", err)
 		state.Put("error", err)

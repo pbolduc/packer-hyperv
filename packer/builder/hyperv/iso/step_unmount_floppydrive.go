@@ -9,8 +9,8 @@ import (
 	"bytes"
 	"os"
 	"github.com/mitchellh/multistep"
-	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	"github.com/mitchellh/packer/packer"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 
@@ -20,23 +20,23 @@ type StepUnmountFloppydrive struct {
 }
 
 func (s *StepUnmountFloppydrive) Run(state multistep.StateBag) multistep.StepAction {
-//	config := state.Get("config").(*config)
-	driver := state.Get("driver").(hypervcommon.Driver)
+	//config := state.Get("config").(*config)
+	//driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	errorMsg := "Error Unmounting floppy drive: %s"
 	vmName := state.Get("vmName").(string)
 	packerTempDir :=  state.Get("packerTempDir").(string)
 
+	powershell, _ := powershell.Command()
 
 	ui.Say("Unmounting floppy drive...")
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Set-VMFloppyDiskDrive -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -Path $null}")
+	blockBuffer.WriteString("param([string]$vmName)")
+	blockBuffer.WriteString("Set-VMFloppyDiskDrive -VMName $vmName -Path $null}")
 
-	err := driver.HypervManage( blockBuffer.String() )
+	err := powershell.RunFile(blockBuffer.Bytes(), vmName)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)

@@ -7,16 +7,13 @@ package common
 import (
 	"fmt"
 	"log"
-	"os/exec"
 	"strings"
 	"runtime"
 	"strconv"
-	"bytes"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 type HypervPS4Driver struct {
-	HypervManagePath string
 }
 
 func NewHypervPS4Driver() (Driver, error) {
@@ -28,13 +25,11 @@ func NewHypervPS4Driver() (Driver, error) {
 		return nil, err
 	}
 
-	ps4Driver := &HypervPS4Driver{ HypervManagePath: "powershell"}
+	ps4Driver := &HypervPS4Driver { }
 
 	if err := ps4Driver.Verify(); err != nil {
 		return nil, err
 	}
-
-	log.Printf("HypervManage path: %s", ps4Driver.HypervManagePath)
 
 	return ps4Driver, nil
 }
@@ -53,10 +48,6 @@ func (d *HypervPS4Driver) Verify() error {
 		return err
 	}
 
-	if err := d.setExecutionPolicy(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -65,9 +56,9 @@ func (d *HypervPS4Driver) verifyPSVersion() error {
 	log.Printf("Enter method: %s", "verifyPSVersion")
 	// check PS is available and is of proper version
 	versionCmd := "$host.version.Major"
-	cmd := exec.Command(d.HypervManagePath, versionCmd)
+	powershell, _ := powershell.Command()
 
-	cmdOut, err := cmd.Output()
+	cmdOut, err := powershell.Output(versionCmd)
 	if err != nil {
 		return err
 	}
@@ -93,10 +84,10 @@ func (d *HypervPS4Driver) verifyPSHypervModule() error {
 
 	log.Printf("Enter method: %s", "verifyPSHypervModule")
 
-	versionCmd := "Invoke-Command -scriptblock { function foo(){try{ $commands = Get-Command -Module Hyper-V;if($commands.Length -eq 0){return $false} }catch{return $false}; return $true} foo}"
-	cmd := exec.Command(d.HypervManagePath, versionCmd)
+	versionCmd := "function foo(){try{ $commands = Get-Command -Module Hyper-V;if($commands.Length -eq 0){return $false} }catch{return $false}; return $true} foo"
 
-	cmdOut, err := cmd.Output()
+	powershell, _ := powershell.Command()
+	cmdOut, err := powershell.OutputScriptBlock(versionCmd)
 	if err != nil {
 		return err
 	}
@@ -117,7 +108,7 @@ func (d *HypervPS4Driver) verifyElevatedMode() error {
 
 	powershell, err := powershell.Command()
 
-	ps1, err := Asset("scripts/IsAdministrator.ps1")
+	ps1, err := Asset("scripts/is_current_user_administrator.ps1")
 	if err != nil {
 		err := fmt.Errorf("Could not load script scripts/IsAdministrator.ps1: %s", err)
 		return err
@@ -137,67 +128,4 @@ func (d *HypervPS4Driver) verifyElevatedMode() error {
 	}
 
 	return nil
-}
-
-func (d *HypervPS4Driver) setExecutionPolicy() error {
-
-	log.Printf("Enter method: %s", "setExecutionPolicy")
-
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Set-ExecutionPolicy RemoteSigned -Force}")
-
-	err := d.HypervManage(blockBuffer.String())
-
-	return err
-}
-
-func (d *HypervPS4Driver) VerifyPSAzureModule() error {
-	log.Printf("Enter method: %s", "VerifyPSAzureModule")
-
-	versionCmd := "Invoke-Command -scriptblock { function foo(){try{ $commands = Get-Command -Module Azure;if($commands.Length -eq 0){return $false} }catch{return $false}; return $true} foo}"
-	cmd := exec.Command(d.HypervManagePath, versionCmd)
-
-	cmdOut, err := cmd.Output()
-	if err != nil {
-		return err
-	}
-
-	res := strings.TrimSpace(string(cmdOut))
-
-	if(res== "False"){
-		err := fmt.Errorf("%s", "Azure PowerShell not found. Try this link to install Azure PowerShell: http://go.microsoft.com/?linkid=9811175&clcid=0x409.")
-		return err
-	}
-
-	return nil
-}
-
-func (d *HypervPS4Driver) HypervManage(block string) error {
-
-	log.Printf("Executing HypervManage: %#v", block)
-
-	var stdout, stderr bytes.Buffer
-
-	script := exec.Command(d.HypervManagePath, block)
-	script.Stdout = &stdout
-	script.Stderr = &stderr
-
-	err := script.Run()
-
-	stderrString := strings.TrimSpace(stderr.String())
-
-	if _, ok := err.(*exec.ExitError); ok {
-		err = fmt.Errorf("HypervManage error: %s", stderrString)
-	}
-
-	if len(stderrString) > 0 {
-		err = fmt.Errorf("HypervManage error: %s", stderrString)
-	}
-
-	stdoutString := strings.TrimSpace(stdout.String())
-
-	log.Printf("stdout: %s", stdoutString)
-	log.Printf("stderr: %s", stderrString)
-
-	return err
 }

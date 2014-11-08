@@ -34,9 +34,9 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	path :=	state.Get("packerTempDir").(string)
 
 	powershell, err := powershell.Command()
-	ps1, err := hypervcommon.Asset("scripts/New-VM.ps1")
+	ps1, err := hypervcommon.Asset("scripts/new-vm.ps1")
 	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/New-VM.ps1: %s", err)
+		err := fmt.Errorf("Could not load script scripts/new-vm.ps1: %s", err)
 		state.Put("error", err)
 		return multistep.ActionHalt
 	}
@@ -75,19 +75,20 @@ func (s *StepCreateVM) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	driver := state.Get("driver").(hypervcommon.Driver)
+	//driver := state.Get("driver").(hypervcommon.Driver)
 	ui := state.Get("ui").(packer.Ui)
+
+	powershell, _ := powershell.Command()
 
 	ui.Say("Unregistering and deleting virtual machine...")
 
 	var err error = nil
 
 	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock {Remove-VM –Name '")
-	blockBuffer.WriteString(s.vmName)
-	blockBuffer.WriteString("' -Force }")
+	blockBuffer.WriteString("param([string]$vmName)")
+	blockBuffer.WriteString("Remove-VM –Name $vmName -Force }")
 
-	err = driver.HypervManage( blockBuffer.String() )
+	err = powershell.RunFile(blockBuffer.Bytes(), s.vmName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting virtual machine: %s", err))
