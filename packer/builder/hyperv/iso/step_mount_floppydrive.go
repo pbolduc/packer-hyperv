@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 	"github.com/mitchellh/multistep"
-	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	common "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	"github.com/mitchellh/packer/packer"
 	"log"
 	"io"
@@ -51,14 +51,12 @@ func (s *StepMountFloppydrive) Run(state multistep.StateBag) multistep.StepActio
 	ui.Say("Mounting floppy drive...")
 
 	powershell, err := powershell.Command()
-	ps1, err := hypervcommon.Asset("scripts/mount_floppy_drive.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/mount_floppy_drive.ps1: %s", err)
-		state.Put("error", err)
-		return multistep.ActionHalt
-	}
 
-	err = powershell.RunFile(ps1, vmName, floppyPath)
+	var script common.ScriptBuilder
+	script.WriteLine("param([string]$vmName, [string]$path)")
+	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $path")
+
+	err = powershell.RunFile(script.Bytes(), vmName, floppyPath)
 
 	if err != nil {
 		state.Put("error", fmt.Errorf("Error mounting floppy drive: %s", err))
@@ -82,15 +80,13 @@ func (s *StepMountFloppydrive) Cleanup(state multistep.StateBag) {
 
 	ui.Say("Unmounting floppy drive...")
 
-	powershell, err := powershell.Command()
-	ps1, err := hypervcommon.Asset("scripts/unmount_floppy_drive.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/unmount_floppy_drive.ps1: %s", err)
-		state.Put("error", err)
-		return
-	}
+	powershell, _ := powershell.Command()
 
-	err = powershell.RunFile(ps1, vmName)
+	var script common.ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $null")
+
+	err := powershell.RunFile(script.Bytes(), vmName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errorMsg, err))

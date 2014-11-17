@@ -8,11 +8,10 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	"os/exec"
 	"strings"
-	"bytes"
 	"time"
 	"log"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 
@@ -29,21 +28,27 @@ func (s *StepConfigureIp) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Configuring ip address...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock { function foo(){try{ $adapter = Get-VMNetworkAdapter -VMName '")
-	blockBuffer.WriteString(vmName)
-	blockBuffer.WriteString("' -ErrorAction SilentlyContinue;$ip = $adapter.IPAddresses[0];if($ip -eq $null) {return $false} }catch{return $false} return $ip } foo}")
+	var script ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("try {")
+	script.WriteLine("  $adapter = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue")
+	script.WriteLine("  $ip = $adapter.IPAddresses[0]")
+	script.WriteLine("  if($ip -eq $null) {")
+	script.WriteLine("    return $false")
+	script.WriteLine("  }")
+	script.WriteLine("} catch {")
+	script.WriteLine("  return $false")
+	script.WriteLine("}")
+	script.WriteLine("$ip")
 
 	count := 60
 	var duration time.Duration = 1
 	sleepTime := time.Minute * duration
 	var ip string
 
-//	var err error
-
 	for count != 0 {
-		cmd := exec.Command("powershell", blockBuffer.String())
-		cmdOut, err := cmd.Output()
+		powershell, err := powershell.Command()
+		cmdOut, err := powershell.OutputFile(script.Bytes(), vmName);
 		if err != nil {
 			err := fmt.Errorf(errorMsg, err)
 			state.Put("error", err)

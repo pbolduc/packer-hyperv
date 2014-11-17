@@ -6,7 +6,6 @@ package iso
 
 import (
 	"fmt"
-	"bytes"
 	"strconv"
 	"github.com/mitchellh/multistep"
 	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
@@ -30,17 +29,7 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	ui.Say("Creating virtual machine...")
 
 	vmName := config.VMName
-//	path :=	config.OutputDir
 	path :=	state.Get("packerTempDir").(string)
-
-	powershell, err := powershell.Command()
-	ps1, err := hypervcommon.Asset("scripts/new-vm.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/new-vm.ps1: %s", err)
-		state.Put("error", err)
-		return multistep.ActionHalt
-	}
-
 
 	// convert the MB to bytes
 	ramBytes := int64(config.RamSizeMB * 1024 * 1024)
@@ -50,8 +39,15 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	diskSize := strconv.FormatInt(diskSizeBytes, 10)
 	switchName := config.SwitchName
 
-	err = powershell.RunFile(ps1, vmName, path, ram, diskSize, switchName)
+	powershell, _ := powershell.Command()
 
+	var script hypervcommon.ScriptBuilder
+	script.WriteLine("param([string]$vmName, [string]$path, [long]$memoryStartupBytes, [long]$newVHDSizeBytes, [string]$switchName)")
+	script.WriteLine("$vhdx = $vmName + '.vhdx'")
+	script.WriteLine("$vhdPath = Join-Path -Path $path -ChildPath $vhdx")
+	script.WriteLine("New-VM -Name $vmName -Path $path -MemoryStartupBytes $memoryStartupBytes -NewVHDPath $vhdPath -NewVHDSizeBytes $newVHDSizeBytes -SwitchName $switchName")
+
+	err := powershell.RunFile(script.Bytes(), vmName, path, ram, diskSize, switchName)
 	if err != nil {
 		err := fmt.Errorf("Error creating virtual machine: %s", err)
 		state.Put("error", err)
@@ -84,11 +80,11 @@ func (s *StepCreateVM) Cleanup(state multistep.StateBag) {
 
 	var err error = nil
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$vmName)")
-	blockBuffer.WriteString("Remove-VM –Name $vmName -Force }")
+	var script hypervcommon.ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("Remove-VM -Name $vmName -Force")
 
-	err = powershell.RunFile(blockBuffer.Bytes(), s.vmName)
+	err = powershell.RunFile(script.Bytes(), s.vmName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting virtual machine: %s", err))

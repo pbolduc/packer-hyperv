@@ -78,7 +78,7 @@ func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (stri
 		return "", err
 	}
 
-	defer os.Remove(filename)
+	//defer os.Remove(filename)
 	
 	args := createArgs(filename, params...)
 

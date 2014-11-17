@@ -6,7 +6,6 @@ package common
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/communicator/powershell"
@@ -15,6 +14,7 @@ import (
 
 type StepSetRemoting struct {
 	comm packer.Communicator
+	ip string
 }
 
 func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
@@ -29,12 +29,12 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Adding to TrustedHosts (require elevated mode)")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$ip)")
-	blockBuffer.WriteString("Invoke-Command -scriptblock { Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts $ip -Force }")
+	var script ScriptBuilder
+	script.WriteLine("param([string]$ip)")
+	script.WriteLine("Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts $ip -Force -Concatenate")
 
 	var err error
-	err = ps.RunFile(blockBuffer.Bytes(), ip)
+	err = ps.RunFile(script.Bytes(), ip)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -62,11 +62,25 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 	packerCommunicator := packer.Communicator(comm)
 
 	s.comm = packerCommunicator
+	s.ip = ip
 	state.Put("communicator", packerCommunicator)
 
 	return multistep.ActionContinue
 }
 
 func (s *StepSetRemoting) Cleanup(state multistep.StateBag) {
-	// do nothing
+
+	if s.ip == "" {
+		return
+	}
+
+	var script ScriptBuilder
+	script.WriteLine("param([string]$ip)")
+	script.WriteLine("[System.Collections.ArrayList] $hosts = (Get-Item -Path WSMan:\\localhost\\Client\\TrustedHosts).Value.Split(',')")
+	script.WriteLine("$hosts.Remove($ip)")
+	script.WriteLine("$newTrustedHosts = $hosts.ToArray() -Join ','")
+	script.WriteLine("Set-Item -Path WSMan:\\localhost\\Client\\TrustedHosts -Value $newTrustedHosts -Force")
+
+	ps, _ := ps.Command()
+	_ = ps.RunFile(script.Bytes(), s.ip)
 }

@@ -24,14 +24,12 @@ func (s *StepEnableIntegrationService) Run(state multistep.StateBag) multistep.S
 	ui.Say("Enabling Integration Service...")
 
 	powershell, err := powershell.Command()
-	ps1, err := Asset("scripts/enable_vm_integration_service.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/Enable-VMIntegrationService.ps1: %s", err)
-		state.Put("error", err)
-		return multistep.ActionHalt
-	}
 
-	err = powershell.RunFile(ps1, vmName, s.name)
+	var script ScriptBuilder
+	script.WriteLine("param([string]$vmName, [string]$integrationServiceName)")
+	script.WriteLine("Enable-VMIntegrationService -VMName $vmName -Name $integrationServiceName")
+
+	err = powershell.RunFile(script.Bytes(), vmName, s.name)
 
 	if err != nil {
 		err := fmt.Errorf("Error enabling Integration Service: %s", err)

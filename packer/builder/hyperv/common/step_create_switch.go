@@ -47,14 +47,14 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say(fmt.Sprintf("Creating %v switch...", s.SwitchType))
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$switchName,[string]$switchType)")
-	blockBuffer.WriteString("$switches = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue")
-	blockBuffer.WriteString("if ($switches.Count -eq 0) {")
-	blockBuffer.WriteString("  New-VMSwitch -Name $switchName -SwitchType $switchType")
-	blockBuffer.WriteString("}")
+	var script ScriptBuilder
+	script.WriteLine("param([string]$switchName,[string]$switchType)")
+	script.WriteLine("$switches = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue")
+	script.WriteLine("if ($switches.Count -eq 0) {")
+	script.WriteLine("  New-VMSwitch -Name $switchName -SwitchType $switchType")
+	script.WriteLine("}")
 
-	err := powershell.RunFile(blockBuffer.Bytes(), s.SwitchName, s.SwitchType)
+	err := powershell.RunFile(script.Bytes(), s.SwitchName, s.SwitchType)
 
 	if err != nil {
 		err := fmt.Errorf("Error creating switch: %s", err)
@@ -82,13 +82,18 @@ func (s *StepCreateSwitch) Cleanup(state multistep.StateBag) {
 
 	ui.Say("Unregistering and deleting switch...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$switchName)")
-	blockBuffer.WriteString("Remove-VMSwitch $switchName -Force}")
+	var script ScriptBuilder
+	script.WriteLine("param([string]$switchName)")
+	script.WriteLine("Remove-VMSwitch $switchName -Force")
 
-	err := powershell.RunFile(blockBuffer.Bytes(), s.SwitchName)
+	err := powershell.RunFile(script.Bytes(), s.SwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting switch: %s", err))
 	}
+}
+
+func writeLine(buffer bytes.Buffer, s string) {
+	buffer.WriteString(s)
+	buffer.WriteString("\n")
 }

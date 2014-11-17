@@ -6,7 +6,6 @@ package common
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
@@ -33,11 +32,11 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Configuring vlan...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$networkAdapterName,[string]$vlanId)")
-	blockBuffer.WriteString("Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $networkAdapterName -Access -VlanId $vlanId")
+	var script ScriptBuilder
+	script.WriteLine("param([string]$networkAdapterName,[string]$vlanId)")
+	script.WriteLine("Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $networkAdapterName -Access -VlanId $vlanId")
 
-	err := powershell.RunFile(blockBuffer.Bytes(), switchName, vlanId)
+	err := powershell.RunFile(script.Bytes(), switchName, vlanId)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -46,11 +45,11 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 		return multistep.ActionHalt
 	}
 
-	blockBuffer.Reset()
-	blockBuffer.WriteString("param([string]$vmName,[string]$vlanId)")
-	blockBuffer.WriteString("Set-VMNetworkAdapterVlan -VMName $vmName -Access -VlanId $vlanId")
+	script.Reset()
+	script.WriteLine("param([string]$vmName,[string]$vlanId)")
+	script.WriteLine("Set-VMNetworkAdapterVlan -VMName $vmName -Access -VlanId $vlanId")
 
-	err = powershell.RunFile(blockBuffer.Bytes(), vmName, vlanId)
+	err = powershell.RunFile(script.Bytes(), vmName, vlanId)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)

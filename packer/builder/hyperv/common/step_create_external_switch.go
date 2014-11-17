@@ -6,7 +6,6 @@ package common
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	"strings"
@@ -37,13 +36,13 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 
 	packerExternalSwitchName := "paes_" + uuid.New()
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$vmName,[string]$switchName)")
-	blockBuffer.WriteString("$switch=$null")
-	blockBuffer.WriteString("$names=@('ethernet','wi-fi','foo')")
-	blockBuffer.WriteString("$adapters=foreach($name in $names){Get-NetAdapter -physical -Name $name -ErrorAction SilentlyContinue | where status -eq 'up' }foreach($adapter in $adapters){$switch=Get-VMSwitch –SwitchType External | where {$_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription};if($switch -eq $null){$switch=New-VMSwitch -Name $switchName -NetAdapterName $adapter.Name -AllowManagementOS $true -Notes 'Parent OS, VMs, WiFi'};if($switch -ne $null){break}};if($switch -ne $null){Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter -VMSwitch $switch } else{ Write-Error 'No internet adapters found'}")
+	var script ScriptBuilder
+	script.WriteLine("param([string]$vmName,[string]$switchName)")
+	script.WriteLine("$switch=$null")
+	script.WriteLine("$names=@('ethernet','wi-fi','foo')")
+	script.WriteLine("$adapters=foreach($name in $names){Get-NetAdapter -physical -Name $name -ErrorAction SilentlyContinue | where status -eq 'up' }foreach($adapter in $adapters){$switch=Get-VMSwitch –SwitchType External | where {$_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription};if($switch -eq $null){$switch=New-VMSwitch -Name $switchName -NetAdapterName $adapter.Name -AllowManagementOS $true -Notes 'Parent OS, VMs, WiFi'};if($switch -ne $null){break}};if($switch -ne $null){Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter -VMSwitch $switch } else{ Write-Error 'No internet adapters found'}")
 
-	err = powershell.RunFile(blockBuffer.Bytes(), vmName, packerExternalSwitchName)
+	err = powershell.RunFile(script.Bytes(), vmName, packerExternalSwitchName)
 
 	if err != nil {
 		err := fmt.Errorf("Error creating switch: %s", err)
@@ -53,12 +52,12 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 		return multistep.ActionHalt
 	}
 
-	blockBuffer.Reset()
-	blockBuffer.WriteString("param([string]$vmName)")
-	blockBuffer.WriteString("(Get-VMNetworkAdapter -VMName $vmName).SwitchName}")
+	script.Reset()
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("(Get-VMNetworkAdapter -VMName $vmName).SwitchName}")
 
 	
-	cmdOut, err := powershell.OutputFile(blockBuffer.Bytes(), vmName)
+	cmdOut, err := powershell.OutputFile(script.Bytes(), vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
@@ -112,11 +111,11 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$vmName,[string]$switchName)")
-	blockBuffer.WriteString("Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter –SwitchName $switchName")
+	var script ScriptBuilder
+	script.WriteLine("param([string]$vmName,[string]$switchName)")
+	script.WriteLine("Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter –SwitchName $switchName")
 
-	err = powershell.RunFile(blockBuffer.Bytes(), vmName, s.oldSwitchName)
+	err = powershell.RunFile(script.Bytes(), vmName, s.oldSwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errMsg, err))
@@ -125,11 +124,11 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 
 	state.Put("SwitchName", s.oldSwitchName)
 
-	blockBuffer.Reset()
-	blockBuffer.WriteString("param([string]$switchName)")
-	blockBuffer.WriteString("$TestSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue;if($TestSwitch -ne $null){Remove-VMSwitch $sn -Force}")
+	script.Reset()
+	script.WriteLine("param([string]$switchName)")
+	script.WriteLine("$TestSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue;if($TestSwitch -ne $null){Remove-VMSwitch $sn -Force}")
 
-	err = powershell.RunFile(blockBuffer.Bytes(), s.SwitchName)
+	err = powershell.RunFile(script.Bytes(), s.SwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errMsg, err))

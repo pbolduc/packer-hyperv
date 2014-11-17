@@ -23,14 +23,15 @@ func (s *StepStopVm) Run(state multistep.StateBag) multistep.StepAction {
 	ui.Say("Stopping vm...")
 
 	powershell, err := powershell.Command()
-	ps1, err := Asset("scripts/stop_vm.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/Stop-VM.ps1: %s", err)
-		state.Put("error", err)
-		return multistep.ActionHalt
-	}
 
-	err = powershell.RunFile(ps1, vmName)
+	var script ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("$vm = Get-VM -Name $vmName")
+	script.WriteLine("if ($vm.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running) {")
+	script.WriteLine("    Stop-VM -VM $vm")
+	script.WriteLine("}")
+
+	err = powershell.RunFile(script.Bytes(), vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)

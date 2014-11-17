@@ -45,15 +45,12 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Exporting vm...")
 
-	powershell, err := powershell.Command()
-	ps1, err := hypervcommon.Asset("scripts/export_vm.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/export_vm.ps1: %s", err)
-		state.Put("error", err)
-		return multistep.ActionHalt
-	}
+	var script hypervcommon.ScriptBuilder
+	script.WriteLine("param([string]$vmName, [string]$path)")
+	script.WriteLine("Export-VM -Name $vmName -Path $path")
 
-	err = powershell.RunFile(ps1, vmName, vmExportPath)
+	powershell, err := powershell.Command()
+	err = powershell.RunFile(script.Bytes(), vmName, vmExportPath)
 
 	if err != nil {
 		errorMsg = "Error exporting vm: %s"
@@ -68,14 +65,13 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Coping to output dir...")
 
-	ps1, err = hypervcommon.Asset("scripts/copy_exported_vm.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/copy_exported_vm.ps1: %s", err)
-		state.Put("error", err)
-		return multistep.ActionHalt
-	}
+	script.Reset()
+	script.WriteLine("param([string]$srcPath, [string]$dstPath, [string]$vhdDirName, [string]$vmDir)")
+	script.WriteLine("Copy-Item -Path $srcPath/$vhdDirName -Destination $dstPath -recurse")
+	script.WriteLine("Copy-Item -Path $srcPath/$vmDir -Destination $dstPath")
+	script.WriteLine("Copy-Item -Path $srcPath/$vmDir/*.xml -Destination $dstPath/$vmDir")
 
-	err = powershell.RunFile(ps1, expPath, outputPath, vhdDir, vmDir)
+	err = powershell.RunFile(script.Bytes(), expPath, outputPath, vhdDir, vmDir)
 	if err != nil {
 		errorMsg = "Error exporting vm: %s"
 		err := fmt.Errorf(errorMsg, err)

@@ -6,10 +6,10 @@ package iso
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	common "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 )
 
 
@@ -29,11 +29,11 @@ func (s *StepMountDvdDrive) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Mounting dvd drive...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$vmName,[string]$path)")
-	blockBuffer.WriteString("Set-VMDvdDrive -VMName $vmName -Path $path")
+	var script common.ScriptBuilder
+	script.WriteLine("param([string]$vmName,[string]$path)")
+	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $path")
 
-	err := powershell.RunFile(blockBuffer.Bytes(), vmName, isoPath)
+	err := powershell.RunFile(script.Bytes(), vmName, isoPath)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -63,11 +63,11 @@ func (s *StepMountDvdDrive) Cleanup(state multistep.StateBag) {
 
 	var err error = nil
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$vmName)")
-	blockBuffer.WriteString("Set-VMDvdDrive -VMName $vmName -Path $null")
+	var script common.ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $null")
 
-	err = powershell.RunFile(blockBuffer.Bytes(), vmName)
+	err = powershell.RunFile(script.Bytes(), vmName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errorMsg, err))

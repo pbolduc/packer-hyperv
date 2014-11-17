@@ -6,7 +6,6 @@ package common
 
 import (
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	"time"
@@ -27,11 +26,11 @@ func (s *StepRebootVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Rebooting vm...")
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("param([string]$vmName)")
-	blockBuffer.WriteString("Restart-VM $vmName -Force")
+	var script ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("Restart-VM $vmName -Force")
 
-	err := powershell.RunFile(blockBuffer.Bytes(), vmName)
+	err := powershell.RunFile(script.Bytes(), vmName)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)

@@ -22,15 +22,12 @@ func (s *StepStartVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Starting vm...")
 
-	powershell, err := powershell.Command()
-	ps1, err := Asset("scripts/start_vm.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/Start-VM.ps1: %s", err)
-		state.Put("error", err)
-		return multistep.ActionHalt
-	}
+	var script ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("Start-VM -Name $vmName")
 
-	err = powershell.RunFile(ps1, vmName)
+	powershell, err := powershell.Command()
+	err = powershell.RunFile(script.Bytes(), vmName)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -48,14 +45,15 @@ func (s *StepStartVm) Cleanup(state multistep.StateBag) {
 	ui.Say("Stopping virtual machine...")
 
 	powershell, err := powershell.Command()
-	ps1, err := Asset("scripts/stop_vm.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/Stop-VM.ps1: %s", err)
-		state.Put("error", err)
-		return		
-	}
 
-	err = powershell.RunFile(ps1, vmName)
+	var script ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("$vm = Get-VM -Name $vmName")
+	script.WriteLine("if ($vm.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running) {")
+	script.WriteLine("    Stop-VM -VM $vm")
+	script.WriteLine("}")
+
+	err = powershell.RunFile(script.Bytes(), vmName)
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error stopping virtual machine: %s", err))
 	}

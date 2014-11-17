@@ -10,10 +10,10 @@ import (
 	"log"
 	"os"
 	"time"
-
+	"strconv"
 	"github.com/mitchellh/multistep"
 	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
-//	msbldcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/common"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 	"github.com/mitchellh/packer/common"
 	"github.com/mitchellh/packer/packer"
 	"regexp"
@@ -56,7 +56,7 @@ type config struct {
 	common.PackerConfig           			`mapstructure:",squash"`
 	hypervcommon.OutputConfig     			`mapstructure:",squash"`
 
-	SwitchName          string
+	SwitchName          string 				`mapstructure:"switch_name"`
 
 	tpl *packer.ConfigTemplate
 }
@@ -83,35 +83,21 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	errs = packer.MultiErrorAppend(errs, b.config.OutputConfig.Prepare(b.config.tpl, &b.config.PackerConfig)...)
 	warnings := make([]string, 0)
 
-	if b.config.DiskSize == 0 {
-		b.config.DiskSize = DefaultDiskSize
-	}
-	log.Println(fmt.Sprintf("%s: %v", "DiskSize", b.config.DiskSize))
-
-	if(b.config.DiskSize < MinDiskSize ){
-		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("disk_size_gb: Windows server requires disk space >= %v GB, but defined: %v", MinDiskSize, b.config.DiskSize/1024))
-	} else if b.config.DiskSize > MaxDiskSize {
-		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("disk_size_gb: Windows server requires disk space <= %v GB, but defined: %v", MaxDiskSize, b.config.DiskSize/1024))
+	err = b.checkDiskSize()
+	if err != nil {
+		errs = packer.MultiErrorAppend(errs, err)
 	}
 
-	if b.config.RamSizeMB == 0 {
-		b.config.RamSizeMB = DefaultRamSize
+	err = b.checkRamSize()
+	if err != nil {
+		errs = packer.MultiErrorAppend(errs, err)
 	}
 
-	log.Println(fmt.Sprintf("%s: %v", "RamSize", b.config.RamSizeMB))
-
-	if(b.config.RamSizeMB < MinRamSize ){
-		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("ram_size_mb: Windows server requires memory size >= %v MB, but defined: %v", MinRamSize, b.config.RamSizeMB))
-	} else if b.config.RamSizeMB > MaxRamSize {
-		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("ram_size_mb: Windows server requires memory size <= %v MB, but defined: %v", MaxRamSize, b.config.RamSizeMB))
+	warning := b.checkHostAvailableMemory()
+	if warning != "" {
+		warnings = appendWarnings(warnings, warning)
 	}
 
-	// todo: get host memory using PowerShell: Invoke-Command -ScriptBlock { (Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024
-	warnings = appendWarnings( warnings, fmt.Sprintf("Hyper-V might fail to create a VM if there is no available memory in the system."))
 
 	if b.config.VMName == "" {
 		b.config.VMName = fmt.Sprintf("pvm_%s", uuid.New())
@@ -177,27 +163,6 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 	log.Println(fmt.Sprintf("%s: %v","RawSingleISOUrl", b.config.RawSingleISOUrl))
 
-
-// 	guestOSTypesIsValid := false
-// 	guestOSTypes := []string{
-// 		WS2012R2DC,
-// //		WS2012R2St,
-// 	}
-
-// 	log.Println(fmt.Sprintf("%s: %v","GuestOSType", b.config.GuestOSType))
-
-// 	for _, guestType := range guestOSTypes {
-// 		if b.config.GuestOSType == guestType {
-// 			guestOSTypesIsValid = true
-// 			break
-// 		}
-// 	}
-
-// 	if !guestOSTypesIsValid {
-// 		errs = packer.MultiErrorAppend(errs,
-// 			fmt.Errorf("guest_os_type: The value is invalid. Must be one of: %v", guestOSTypes))
-// 	}
-
 	if errs != nil && len(errs.Errors) > 0 {
 		return warnings, errs
 	}
@@ -237,13 +202,15 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		new(StepMountFloppydrive),
 //		new(hypervcommon.StepConfigureVlan),
 		new(hypervcommon.StepStartVm),
-		&hypervcommon.StepSleep{ Minutes: b.config.SleepTimeMinutes, ActionName: "Installing" },
+		&hypervcommon.StepWaitForInstallToComplete{ ExpectedRebootCount: 3, ActionName: "Installing" },
 
 		// new(hypervcommon.StepConfigureIp),
 		// new(hypervcommon.StepSetRemoting),
 		// new(common.StepProvision),
 //		new(StepInstallProductKey),
 
+		new(StepUnmountFloppyDrive),
+		new(StepUnmountDvdDrive),
 		new(StepExportVm),
 
 //		new(hypervcommon.StepConfigureIp),
@@ -302,3 +269,52 @@ func appendWarnings(slice []string, data ...string) []string {
 	return slice
 }
 
+func (b *Builder) checkDiskSize() error {
+	if b.config.DiskSize == 0 {
+		b.config.DiskSize = DefaultDiskSize
+	}
+
+	log.Println(fmt.Sprintf("%s: %v", "DiskSize", b.config.DiskSize))
+
+	if(b.config.DiskSize < MinDiskSize ){
+		return fmt.Errorf("disk_size_gb: Windows server requires disk space >= %v GB, but defined: %v", MinDiskSize, b.config.DiskSize/1024)
+	} else if b.config.DiskSize > MaxDiskSize {
+		return fmt.Errorf("disk_size_gb: Windows server requires disk space <= %v GB, but defined: %v", MaxDiskSize, b.config.DiskSize/1024)
+	}
+
+	return nil
+}
+
+func (b *Builder) checkRamSize() error {
+	if b.config.RamSizeMB == 0 {
+		b.config.RamSizeMB = DefaultRamSize
+	}
+
+	log.Println(fmt.Sprintf("%s: %v", "RamSize", b.config.RamSizeMB))
+
+	if(b.config.RamSizeMB < MinRamSize ){
+		return fmt.Errorf("ram_size_mb: Windows server requires memory size >= %v MB, but defined: %v", MinRamSize, b.config.RamSizeMB)
+	} else if b.config.RamSizeMB > MaxRamSize {
+		return fmt.Errorf("ram_size_mb: Windows server requires memory size <= %v MB, but defined: %v", MaxRamSize, b.config.RamSizeMB)
+	}
+
+	return nil
+}
+
+func (b *Builder) checkHostAvailableMemory() string {
+
+	powershell, _ := powershell.Command()
+
+	var script hypervcommon.ScriptBuilder
+	script.WriteLine("(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024")
+
+	output, _ := powershell.OutputFile(script.Bytes())
+
+	freeMB, _ := strconv.ParseFloat(output, 64)
+
+	if (freeMB - float64(b.config.RamSizeMB)) < 512 {
+		return fmt.Sprintf("Hyper-V might fail to create a VM if there is no available memory in the system.")
+	}
+
+	return ""
+}

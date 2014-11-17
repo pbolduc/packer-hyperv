@@ -108,13 +108,13 @@ func (d *HypervPS4Driver) verifyElevatedMode() error {
 
 	powershell, err := powershell.Command()
 
-	ps1, err := Asset("scripts/is_current_user_administrator.ps1")
-	if err != nil {
-		err := fmt.Errorf("Could not load script scripts/IsAdministrator.ps1: %s", err)
-		return err
-	}
+	var script ScriptBuilder
+	script.WriteLine("$identity=[System.Security.Principal.WindowsIdentity]::GetCurrent();")
+	script.WriteLine("$principal=new-object System.Security.Principal.WindowsPrincipal($identity);")
+	script.WriteLine("$administratorRole=[System.Security.Principal.WindowsBuiltInRole]::Administrator;")
+	script.WriteLine("return $principal.IsInRole($administratorRole);")
 
-	cmdOut, err := powershell.OutputFile(ps1);
+	cmdOut, err := powershell.OutputFile(script.Bytes());
 	if err != nil {
 		return err
 	}

@@ -29,14 +29,7 @@ func NewArtifact(dir string) (packer.Artifact, error) {
 
 	// we need to store output dir path to get rel path to keep dir tree :)
 	// to not modify interface - put it as the first array element
-	packerFileName := filepath.Join(dir, "packer.txt")
-	packerFile, err := os.Create(packerFileName)
-	if err != nil {
-		return nil, err
-	}
-	defer packerFile.Close()
-
-	files = append(files, packerFileName)
+	files = append(files, dir)
 
 	visit := func(path string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
@@ -50,9 +43,9 @@ func NewArtifact(dir string) (packer.Artifact, error) {
 		return nil, err
 	}
 
-	return &artifact{
-		dir: dir,
-		f:   files,
+	return &artifact { 
+		dir: dir, 
+		f: files,
 	}, nil
 }
 
@@ -70,6 +63,10 @@ func (*artifact) Id() string {
 
 func (a *artifact) String() string {
 	return fmt.Sprintf("VM files in directory: %s", a.dir)
+}
+
+func (a *artifact) State(name string) interface{} {
+	return nil
 }
 
 func (a *artifact) Destroy() error {
