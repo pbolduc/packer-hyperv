@@ -37,7 +37,7 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	diskSize := strconv.FormatInt(diskSizeBytes, 10)
 	switchName := s.SwitchName
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	var script ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$path, [long]$memoryStartupBytes, [long]$newVHDSizeBytes, [string]$switchName)")
@@ -67,7 +67,7 @@ func (s *StepCreateVM) Cleanup(state multistep.StateBag) {
 	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	ui.Say("Unregistering and deleting virtual machine...")
 

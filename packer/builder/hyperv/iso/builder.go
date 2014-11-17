@@ -323,7 +323,7 @@ func (b *Builder) checkRamSize() error {
 
 func (b *Builder) checkHostAvailableMemory() string {
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	var script hypervcommon.ScriptBuilder
 	script.WriteLine("(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024")

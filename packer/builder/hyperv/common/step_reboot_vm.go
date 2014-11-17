@@ -22,7 +22,7 @@ func (s *StepRebootVm) Run(state multistep.StateBag) multistep.StepAction {
 	errorMsg := "Error rebooting vm: %s"
 	vmName := state.Get("vmName").(string)
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	ui.Say("Rebooting vm...")
 

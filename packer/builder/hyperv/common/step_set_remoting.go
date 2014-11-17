@@ -25,7 +25,7 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 	vmName := state.Get("vmName").(string)
 	ip := state.Get("ip").(string)
 
-	ps, _ := ps.Command()
+	ps := new(ps.PowerShellCmd)
 
 	ui.Say("Adding to TrustedHosts (require elevated mode)")
 
@@ -81,6 +81,6 @@ func (s *StepSetRemoting) Cleanup(state multistep.StateBag) {
 	script.WriteLine("$newTrustedHosts = $hosts.ToArray() -Join ','")
 	script.WriteLine("Set-Item -Path WSMan:\\localhost\\Client\\TrustedHosts -Value $newTrustedHosts -Force")
 
-	ps, _ := ps.Command()
+	ps := new(ps.PowerShellCmd)
 	_ = ps.RunFile(script.Bytes(), s.ip)
 }

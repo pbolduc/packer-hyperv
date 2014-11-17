@@ -43,7 +43,7 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 		s.SwitchType = DefaultSwitchType
 	}
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	ui.Say(fmt.Sprintf("Creating %v switch...", s.SwitchType))
 
@@ -78,7 +78,7 @@ func (s *StepCreateSwitch) Cleanup(state multistep.StateBag) {
 	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	ui.Say("Unregistering and deleting switch...")
 

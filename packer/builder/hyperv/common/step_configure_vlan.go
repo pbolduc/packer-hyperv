@@ -28,7 +28,7 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 	vmName := state.Get("vmName").(string)
 	switchName := state.Get("SwitchName").(string)
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	ui.Say("Configuring vlan...")
 

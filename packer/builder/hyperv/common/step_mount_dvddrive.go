@@ -21,7 +21,7 @@ func (s *StepMountDvdDrive) Run(state multistep.StateBag) multistep.StepAction {
 	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 	errorMsg := "Error mounting dvd drive: %s"
 	vmName := state.Get("vmName").(string)
 	isoPath := s.RawSingleISOUrl
@@ -51,7 +51,7 @@ func (s *StepMountDvdDrive) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 	errorMsg := "Error unmounting dvd drive: %s"
 
 	vmName := state.Get("vmName").(string)

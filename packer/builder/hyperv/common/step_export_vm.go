@@ -48,7 +48,7 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("param([string]$vmName, [string]$path)")
 	script.WriteLine("Export-VM -Name $vmName -Path $path")
 
-	powershell, err := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 	err = powershell.RunFile(script.Bytes(), vmName, vmExportPath)
 
 	if err != nil {

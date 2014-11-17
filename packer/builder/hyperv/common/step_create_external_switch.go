@@ -30,7 +30,7 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 	errorMsg := "Error createing external switch: %s"
 	var err error
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	ui.Say("Creating external switch...")
 
@@ -97,7 +97,7 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 	ui := state.Get("ui").(packer.Ui)
 	vmName := state.Get("vmName").(string)
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	ui.Say("Unregistering and deleting external switch...")
 

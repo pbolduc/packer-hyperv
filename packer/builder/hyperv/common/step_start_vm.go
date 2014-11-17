@@ -26,8 +26,8 @@ func (s *StepStartVm) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Start-VM -Name $vmName")
 
-	powershell, err := powershell.Command()
-	err = powershell.RunFile(script.Bytes(), vmName)
+	powershell := new(powershell.PowerShellCmd)
+	err := powershell.RunFile(script.Bytes(), vmName)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -44,7 +44,7 @@ func (s *StepStartVm) Cleanup(state multistep.StateBag) {
 	vmName := state.Get("vmName").(string)
 	ui.Say("Stopping virtual machine...")
 
-	powershell, err := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	var script ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
@@ -53,7 +53,7 @@ func (s *StepStartVm) Cleanup(state multistep.StateBag) {
 	script.WriteLine("    Stop-VM -VM $vm")
 	script.WriteLine("}")
 
-	err = powershell.RunFile(script.Bytes(), vmName)
+	err := powershell.RunFile(script.Bytes(), vmName)
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error stopping virtual machine: %s", err))
 	}

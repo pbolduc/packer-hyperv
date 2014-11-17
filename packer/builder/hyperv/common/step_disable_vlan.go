@@ -24,7 +24,7 @@ func (s *StepDisableVlan) Run(state multistep.StateBag) multistep.StepAction {
 	switchName := state.Get("SwitchName").(string)
 	var err error
 
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	ui.Say("Disabling vlan...")
 

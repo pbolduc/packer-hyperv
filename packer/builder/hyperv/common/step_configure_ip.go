@@ -47,7 +47,7 @@ func (s *StepConfigureIp) Run(state multistep.StateBag) multistep.StepAction {
 	var ip string
 
 	for count != 0 {
-		powershell, err := powershell.Command()
+		powershell := new(powershell.PowerShellCmd)
 		cmdOut, err := powershell.OutputFile(script.Bytes(), vmName);
 		if err != nil {
 			err := fmt.Errorf(errorMsg, err)

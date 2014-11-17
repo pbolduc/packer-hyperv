@@ -56,7 +56,7 @@ func (d *HypervPS4Driver) verifyPSVersion() error {
 	log.Printf("Enter method: %s", "verifyPSVersion")
 	// check PS is available and is of proper version
 	versionCmd := "$host.version.Major"
-	powershell, _ := powershell.Command()
+	powershell  := new(powershell.PowerShellCmd)
 
 	cmdOut, err := powershell.Output(versionCmd)
 	if err != nil {
@@ -86,7 +86,7 @@ func (d *HypervPS4Driver) verifyPSHypervModule() error {
 
 	versionCmd := "function foo(){try{ $commands = Get-Command -Module Hyper-V;if($commands.Length -eq 0){return $false} }catch{return $false}; return $true} foo"
 
-	powershell, _ := powershell.Command()
+	powershell  := new(powershell.PowerShellCmd)
 	cmdOut, err := powershell.OutputScriptBlock(versionCmd)
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func (d *HypervPS4Driver) verifyElevatedMode() error {
 
 	log.Printf("Enter method: %s", "verifyElevatedMode")
 
-	powershell, err := powershell.Command()
+	powershell  := new(powershell.PowerShellCmd)
 
 	var script ScriptBuilder
 	script.WriteLine("$identity=[System.Security.Principal.WindowsIdentity]::GetCurrent();")

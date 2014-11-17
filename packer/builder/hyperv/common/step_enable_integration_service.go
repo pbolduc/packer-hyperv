@@ -23,13 +23,13 @@ func (s *StepEnableIntegrationService) Run(state multistep.StateBag) multistep.S
 
 	ui.Say("Enabling Integration Service...")
 
-	powershell, err := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 
 	var script ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$integrationServiceName)")
 	script.WriteLine("Enable-VMIntegrationService -VMName $vmName -Name $integrationServiceName")
 
-	err = powershell.RunFile(script.Bytes(), vmName, s.name)
+	err := powershell.RunFile(script.Bytes(), vmName, s.name)
 
 	if err != nil {
 		err := fmt.Errorf("Error enabling Integration Service: %s", err)

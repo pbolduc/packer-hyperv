@@ -37,7 +37,7 @@ func (s *StepWaitForInstallToComplete) Run(state multistep.StateBag) multistep.S
 	uptimeScript := script.Bytes()
 
 	for rebootCount < s.ExpectedRebootCount {
-		powershell, err := powershell.Command()
+		powershell := new(powershell.PowerShellCmd)
 		cmdOut, err := powershell.OutputFile(uptimeScript, vmName);
 		if err != nil {
 			err := fmt.Errorf("Error checking uptime: %s", err)

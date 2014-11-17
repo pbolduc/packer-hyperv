@@ -21,7 +21,7 @@ func (s *StepUnmountDvdDrive) Run(state multistep.StateBag) multistep.StepAction
 	ui := state.Get("ui").(packer.Ui)
 
 	vmName := state.Get("vmName").(string)
-	powershell, _ := powershell.Command()
+	powershell := new(powershell.PowerShellCmd)
 	
 	ui.Say("Unmounting dvd drive...")
 

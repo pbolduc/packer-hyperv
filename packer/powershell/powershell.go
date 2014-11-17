@@ -16,36 +16,25 @@ import (
 )
 
 type PowerShellCmd struct {
-	PowerShellPath string
-}
-
-func Command() (*PowerShellCmd, error) {
-
-	_, err := exec.LookPath("powershell")
-	if err != nil {
-		log.Fatal("Cannot find PowerShell in the path", err)
-	}
-
-	ps := &PowerShellCmd{ 
-		PowerShellPath: "powershell",
-	}
-
-	log.Printf("PowerShell path: %s", ps.PowerShellPath)
-
-	return ps, nil
+	Debug bool
 }
 
 // Output runs the PowerShell command and returns its standard output. 
 func (ps *PowerShellCmd) Output(args string) (string, error) {
 
-	command := exec.Command(ps.PowerShellPath, args)
+	path, err := ps.getPowerShellPath();
+	if err != nil {
+		return "", nil
+	}
+
+	command := exec.Command(path, args)
 
 	var stdout, stderr bytes.Buffer
 
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 
-	err := command.Run()
+	err = command.Run()
 
 	stderrString := strings.TrimSpace(stderr.String())
 
@@ -73,19 +62,26 @@ func (ps *PowerShellCmd) RunScriptBlock(scriptBlock string) (error) {
 }
 
 func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (string, error) {
+	path, err := ps.getPowerShellPath();
+	if err != nil {
+		return "", nil
+	}
+
 	filename, err := saveScript(fileContents);
 	if err != nil {
 		return "", err
 	}
 
-	//defer os.Remove(filename)
+	defer os.Remove(filename)
 	
 	args := createArgs(filename, params...)
 
-	log.Printf("Run: %s %s", ps.PowerShellPath, args)
+	if (ps.Debug) {
+		log.Printf("Run: %s %s", path, args)
+	}
 
 	var stdout, stderr bytes.Buffer
-	command := exec.Command(ps.PowerShellPath, args...)
+	command := exec.Command(path, args...)
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 
@@ -123,6 +119,20 @@ func (ps *PowerShellCmd) Version() (int64, error) {
 	ver, err := strconv.ParseInt(versionOutput, 10, 16)
 
 	return ver, nil;	
+}
+
+func (ps *PowerShellCmd) getPowerShellPath() (string, error) {
+	path, err := exec.LookPath("powershell")
+	if err != nil {
+		log.Fatal("Cannot find PowerShell in the path", err)
+		return "", err
+	}
+
+	if (ps.Debug) {
+		log.Printf("PowerShell path: %s", path)
+	}
+
+	return path, nil
 }
 
 func saveScript(fileContents []byte) (string, error) {
