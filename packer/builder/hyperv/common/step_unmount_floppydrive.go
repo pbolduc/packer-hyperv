@@ -16,7 +16,6 @@ type StepUnmountFloppyDrive struct {
 }
 
 func (s *StepUnmountFloppyDrive) Run(state multistep.StateBag) multistep.StepAction {
-	//config := state.Get("config").(*config)
 	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
