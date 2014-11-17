@@ -31,7 +31,6 @@ const (
 	MaxRamSize = 32768 		// 32GB
 )
 
-
 // Builder implements packer.Builder and builds the actual Hyperv
 // images.
 type Builder struct {
