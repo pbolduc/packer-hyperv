@@ -24,7 +24,7 @@ func (s *StepWaitForInstallToComplete) Run(state multistep.StateBag) multistep.S
 	vmName := state.Get("vmName").(string)
 
 	if(len(s.ActionName)>0){
-		ui.Say(s.ActionName + "! Waiting for OS install to complete...")
+		ui.Say(s.ActionName + "! Waiting for VM to reboot "+fmt.Sprintf("%v",s.ExpectedRebootCount)+" times...")
 	}
 
 	var rebootCount uint
@@ -50,8 +50,6 @@ func (s *StepWaitForInstallToComplete) Run(state multistep.StateBag) multistep.S
 		if uint64(uptime) < lastUptime {
 			rebootCount++
 			ui.Say(s.ActionName + "  -> Detected reboot "+fmt.Sprintf("%v",rebootCount)+" after "+fmt.Sprintf("%v",lastUptime)+" seconds...")
-		} else {
-			//ui.Say(s.ActionName + "  ->  Uptime "+fmt.Sprintf("%v",uptime)+" seconds...")
 		}
 
 		lastUptime = uptime
@@ -67,4 +65,8 @@ func (s *StepWaitForInstallToComplete) Run(state multistep.StateBag) multistep.S
 
 func (s *StepWaitForInstallToComplete) Cleanup(state multistep.StateBag) {
 
+}
+
+
+type StepWaitForWinRm struct {
 }

@@ -120,7 +120,6 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	}
 	log.Println(fmt.Sprintf("%s: %v", "SleepTimeMinutes", uint(b.config.SleepTimeMinutes)))
 
-
 	// Errors
 	templates := map[string]*string{
 		"iso_url":            &b.config.RawSingleISOUrl,
@@ -200,23 +199,28 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		new(hypervcommon.StepEnableIntegrationService),
 		new(StepMountDvdDrive),
 		new(StepMountFloppydrive),
-//		new(hypervcommon.StepConfigureVlan),
 		new(hypervcommon.StepStartVm),
-		&hypervcommon.StepWaitForInstallToComplete{ ExpectedRebootCount: 3, ActionName: "Installing" },
+		&hypervcommon.StepWaitForInstallToComplete{ ExpectedRebootCount: 2, ActionName: "Installing" },
 
-		// new(hypervcommon.StepConfigureIp),
-		// new(hypervcommon.StepSetRemoting),
-		// new(common.StepProvision),
-//		new(StepInstallProductKey),
+		// wait for the first post-install boot to complete
+		&hypervcommon.StepSleep{ Minutes: 2 },
+
+		// if guest OS is windows, WinRM should be installed by 
+		//new(hypervcommon.StepWaitForWinRM),
+
+		//new(hypervcommon.StepSetRemoting),
+		//new(hypervcommon.StepCheckRemoting),
+
+		//new(StepUpdateIntegrationServices),
+
+		//new(StepSysprep),
 
 		new(StepUnmountFloppyDrive),
 		new(StepUnmountDvdDrive),
+		new(hypervcommon.StepStopVm),
 		new(StepExportVm),
 
-//		new(hypervcommon.StepConfigureIp),
-//		new(hypervcommon.StepSetRemoting),
-//		new(hypervcommon.StepCheckRemoting),
-//		new(msbldcommon.StepSysprep),
+		// the clean up actions for each step will be executed reverse order
 	}
 
 	// Run the steps.
