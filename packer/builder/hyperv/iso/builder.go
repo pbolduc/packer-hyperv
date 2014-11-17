@@ -191,19 +191,33 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 			Force: b.config.PackerForce,
 			Path:  b.config.OutputDir,
 		},
-
-		&common.StepCreateFloppy{ Files: b.config.FloppyFiles },
-		&hypervcommon.StepCreateSwitch{ SwitchName: b.config.SwitchName },
-
-		new(StepCreateVM),
+		&common.StepCreateFloppy{
+			Files: b.config.FloppyFiles,
+		},
+		&hypervcommon.StepCreateSwitch{
+			SwitchName: b.config.SwitchName,
+		},
+		&hypervcommon.StepCreateVM{
+			VMName: b.config.VMName,
+			SwitchName: b.config.SwitchName,
+			RamSizeMB: b.config.RamSizeMB,
+			DiskSize: b.config.DiskSize,
+		},
 		new(hypervcommon.StepEnableIntegrationService),
-		new(StepMountDvdDrive),
-		new(StepMountFloppydrive),
+		&hypervcommon.StepMountDvdDrive{
+			RawSingleISOUrl: b.config.RawSingleISOUrl,
+		},
+		new(hypervcommon.StepMountFloppydrive),
 		new(hypervcommon.StepStartVm),
-		&hypervcommon.StepWaitForInstallToComplete{ ExpectedRebootCount: 2, ActionName: "Installing" },
+		&hypervcommon.StepWaitForInstallToComplete{ 
+			ExpectedRebootCount: 2, 
+			ActionName: "Installing",
+		},
 
 		// wait for the first post-install boot to complete
-		&hypervcommon.StepSleep{ Minutes: 2 },
+		&hypervcommon.StepSleep{ 
+			Minutes: 2,
+		},
 
 		// if guest OS is windows, WinRM should be installed by 
 		//new(hypervcommon.StepWaitForWinRM),
@@ -215,10 +229,12 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 
 		//new(StepSysprep),
 
-		new(StepUnmountFloppyDrive),
-		new(StepUnmountDvdDrive),
+		new(hypervcommon.StepUnmountFloppyDrive),
+		new(hypervcommon.StepUnmountDvdDrive),
 		new(hypervcommon.StepStopVm),
-		new(StepExportVm),
+		&hypervcommon.StepExportVm{
+			OutputDir: b.config.OutputDir,
+		},
 
 		// the clean up actions for each step will be executed reverse order
 	}

@@ -2,16 +2,15 @@
 // All Rights Reserved.
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
-package iso
+package common
 
 import (
 	"fmt"
+	"path/filepath"
+	"io/ioutil"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	"path/filepath"
-	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
-	"io/ioutil"
 )
 
 const(
@@ -20,10 +19,10 @@ const(
 )
 
 type StepExportVm struct {
+	OutputDir string
 }
 
 func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
-	config := state.Get("config").(*config)
 	ui := state.Get("ui").(packer.Ui)
 
 	var err error
@@ -31,7 +30,7 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	vmName := state.Get("vmName").(string)
 	tmpPath :=	state.Get("packerTempDir").(string)
-	outputPath := config.OutputDir
+	outputPath := s.OutputDir
 
 	// create temp path to export vm
 	errorMsg = "Error creating temp export path: %s"
@@ -45,7 +44,7 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Exporting vm...")
 
-	var script hypervcommon.ScriptBuilder
+	var script ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$path)")
 	script.WriteLine("Export-VM -Name $vmName -Path $path")
 

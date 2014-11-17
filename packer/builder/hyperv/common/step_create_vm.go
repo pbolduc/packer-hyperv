@@ -2,52 +2,50 @@
 // All Rights Reserved.
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
-package iso
+package common
 
 import (
 	"fmt"
 	"strconv"
 	"github.com/mitchellh/multistep"
-	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
-
 	"github.com/mitchellh/packer/packer"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 // This step creates the actual virtual machine.
 //
 // Produces:
-//   vmName string - The name of the VM
+//   VMName string - The name of the VM
 type StepCreateVM struct {
-	vmName string
+	VMName string
+	SwitchName string
+	RamSizeMB uint
+	DiskSize uint
 }
 
 func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
-	config := state.Get("config").(*config)
 	ui := state.Get("ui").(packer.Ui)
-
 	ui.Say("Creating virtual machine...")
 
-	vmName := config.VMName
 	path :=	state.Get("packerTempDir").(string)
 
 	// convert the MB to bytes
-	ramBytes := int64(config.RamSizeMB * 1024 * 1024)
-	diskSizeBytes := int64(config.DiskSize * 1024 * 1024)
+	ramBytes := int64(s.RamSizeMB * 1024 * 1024)
+	diskSizeBytes := int64(s.DiskSize * 1024 * 1024)
 
 	ram := strconv.FormatInt(ramBytes, 10)
 	diskSize := strconv.FormatInt(diskSizeBytes, 10)
-	switchName := config.SwitchName
+	switchName := s.SwitchName
 
 	powershell, _ := powershell.Command()
 
-	var script hypervcommon.ScriptBuilder
+	var script ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$path, [long]$memoryStartupBytes, [long]$newVHDSizeBytes, [string]$switchName)")
 	script.WriteLine("$vhdx = $vmName + '.vhdx'")
 	script.WriteLine("$vhdPath = Join-Path -Path $path -ChildPath $vhdx")
 	script.WriteLine("New-VM -Name $vmName -Path $path -MemoryStartupBytes $memoryStartupBytes -NewVHDPath $vhdPath -NewVHDSizeBytes $newVHDSizeBytes -SwitchName $switchName")
 
-	err := powershell.RunFile(script.Bytes(), vmName, path, ram, diskSize, switchName)
+	err := powershell.RunFile(script.Bytes(), s.VMName, path, ram, diskSize, switchName)
 	if err != nil {
 		err := fmt.Errorf("Error creating virtual machine: %s", err)
 		state.Put("error", err)
@@ -55,23 +53,18 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 		return multistep.ActionHalt
 	}
 
-	// Set the VM name property on the first command
-	if s.vmName == "" {
-		s.vmName = vmName
-	}
-
 	// Set the final name in the state bag so others can use it
-	state.Put("vmName", s.vmName)
+	state.Put("VMName", s.VMName)
 
 	return multistep.ActionContinue
 }
 
 func (s *StepCreateVM) Cleanup(state multistep.StateBag) {
-	if s.vmName == "" {
+	if s.VMName == "" {
 		return
 	}
 
-	//driver := state.Get("driver").(hypervcommon.Driver)
+	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	powershell, _ := powershell.Command()
@@ -80,11 +73,11 @@ func (s *StepCreateVM) Cleanup(state multistep.StateBag) {
 
 	var err error = nil
 
-	var script hypervcommon.ScriptBuilder
+	var script ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Remove-VM -Name $vmName -Force")
 
-	err = powershell.RunFile(script.Bytes(), s.vmName)
+	err = powershell.RunFile(script.Bytes(), s.VMName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting virtual machine: %s", err))

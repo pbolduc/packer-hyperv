@@ -2,14 +2,13 @@
 // All Rights Reserved.
 // Licensed under the Apache License, Version 2.0.
 // See License.txt in the project root for license information.
-package iso
+package common
 
 import (
 	"fmt"
 	"os"
 	"github.com/mitchellh/multistep"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
-	common "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	"github.com/mitchellh/packer/packer"
 	"log"
 	"io"
@@ -52,7 +51,7 @@ func (s *StepMountFloppydrive) Run(state multistep.StateBag) multistep.StepActio
 
 	powershell, err := powershell.Command()
 
-	var script common.ScriptBuilder
+	var script ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$path)")
 	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $path")
 
@@ -82,7 +81,7 @@ func (s *StepMountFloppydrive) Cleanup(state multistep.StateBag) {
 
 	powershell, _ := powershell.Command()
 
-	var script common.ScriptBuilder
+	var script ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $null")
 
