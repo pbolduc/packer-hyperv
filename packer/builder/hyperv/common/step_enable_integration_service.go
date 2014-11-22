@@ -17,11 +17,10 @@ type StepEnableIntegrationService struct {
 
 func (s *StepEnableIntegrationService) Run(state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packer.Ui)
+	ui.Say("Enabling Integration Service...")
 
 	vmName := state.Get("vmName").(string)
 	s.name = "Guest Service Interface"
-
-	ui.Say("Enabling Integration Service...")
 
 	powershell := new(powershell.PowerShellCmd)
 

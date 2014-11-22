@@ -54,7 +54,7 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	}
 
 	// Set the final name in the state bag so others can use it
-	state.Put("VMName", s.VMName)
+	state.Put("vmName", s.VMName)
 
 	return multistep.ActionContinue
 }

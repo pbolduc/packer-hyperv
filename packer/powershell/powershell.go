@@ -16,7 +16,6 @@ import (
 )
 
 type PowerShellCmd struct {
-	Debug bool
 }
 
 // Output runs the PowerShell command and returns its standard output. 
@@ -76,9 +75,7 @@ func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (stri
 	
 	args := createArgs(filename, params...)
 
-	if (ps.Debug) {
-		log.Printf("Run: %s %s", path, args)
-	}
+	log.Printf("Run: %s %s", path, args)
 
 	var stdout, stderr bytes.Buffer
 	command := exec.Command(path, args...)
@@ -99,8 +96,13 @@ func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (stri
 
 	stdoutString := strings.TrimSpace(stdout.String())
 
-	log.Printf("stdout: %s", stdoutString)
-	log.Printf("stderr: %s", stderrString)
+	if stdoutString != "" {
+		log.Printf("stdout: %s", stdoutString)
+	}
+
+	if stderrString != "" {
+		log.Printf("stderr: %s", stderrString)
+	}
 
 	return stdoutString, err;	
 }
@@ -126,10 +128,6 @@ func (ps *PowerShellCmd) getPowerShellPath() (string, error) {
 	if err != nil {
 		log.Fatal("Cannot find PowerShell in the path", err)
 		return "", err
-	}
-
-	if (ps.Debug) {
-		log.Printf("PowerShell path: %s", path)
 	}
 
 	return path, nil
