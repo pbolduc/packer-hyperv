@@ -63,7 +63,7 @@ func TestRunFile(t *testing.T) {
 	var blockBuffer bytes.Buffer
 	blockBuffer.WriteString("param([string]$a, [string]$b, [int]$x, [int]$y) $n = $x + $y; Write-Host $a, $b, $n")
 
-	err = powershell.RunFile(blockBuffer.Bytes(), "a", "b", "5", "10")
+	err = powershell.Run(blockBuffer.String(), "a", "b", "5", "10")
 
 	if err != nil {
 		t.Fatalf("should not have error: %s", err)

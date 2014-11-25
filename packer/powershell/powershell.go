@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"strconv"
 	"bytes"
 	"io/ioutil"
 )
@@ -18,49 +17,13 @@ import (
 type PowerShellCmd struct {
 }
 
+func (ps *PowerShellCmd) Run(fileContents string, params ...string) error {
+	_, err := ps.Output(fileContents, params...)
+	return err
+}
+
 // Output runs the PowerShell command and returns its standard output. 
-func (ps *PowerShellCmd) Output(args string) (string, error) {
-
-	path, err := ps.getPowerShellPath();
-	if err != nil {
-		return "", nil
-	}
-
-	command := exec.Command(path, args)
-
-	var stdout, stderr bytes.Buffer
-
-	command.Stdout = &stdout
-	command.Stderr = &stderr
-
-	err = command.Run()
-
-	stderrString := strings.TrimSpace(stderr.String())
-
-	if _, ok := err.(*exec.ExitError); ok {
-		err = fmt.Errorf("PowerShell error: %s", stderrString)
-	}
-
-	stdoutString := strings.TrimSpace(stdout.String())
-
-	return stdoutString, err
-}
-
-// OutputScriptBlock runs the PowerShell script block and returns its standard output.
-// The script block will be wrappend in  Invoke-Command -ScriptBlock { scriptBlock }
-func (ps *PowerShellCmd) OutputScriptBlock(scriptBlock string) (string, error) {
-	block := fmt.Sprintf("Invoke-Command -ScriptBlock { %v }", scriptBlock)
-	output, err := ps.Output(block);
-	return output, err
-}
-
-// RunScriptBlock runs the PowerShell script block 
-func (ps *PowerShellCmd) RunScriptBlock(scriptBlock string) (error) {
-	_, err := ps.OutputScriptBlock(scriptBlock);
-	return err;
-}
-
-func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (string, error) {
+func (ps *PowerShellCmd) Output(fileContents string, params ...string) (string, error) {
 	path, err := ps.getPowerShellPath();
 	if err != nil {
 		return "", nil
@@ -71,11 +34,18 @@ func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (stri
 		return "", err
 	}
 
-	defer os.Remove(filename)
+	debug := os.Getenv("PACKER_POWERSHELL_DEBUG") != ""
+	verbose := debug || os.Getenv("PACKER_POWERSHELL_VERBOSE") != ""
+
+	if !debug {
+		defer os.Remove(filename)
+	}
 	
 	args := createArgs(filename, params...)
 
-	log.Printf("Run: %s %s", path, args)
+	if verbose {
+		log.Printf("Run: %s %s", path, args)
+	}
 
 	var stdout, stderr bytes.Buffer
 	command := exec.Command(path, args...)
@@ -96,31 +66,17 @@ func (ps *PowerShellCmd) OutputFile(fileContents []byte, params ...string) (stri
 
 	stdoutString := strings.TrimSpace(stdout.String())
 
-	if stdoutString != "" {
+	if verbose && stdoutString != "" {
 		log.Printf("stdout: %s", stdoutString)
 	}
 
-	if stderrString != "" {
+	// only write the stderr string if verbose because
+	// the error string will already be in the err return value.
+	if verbose && stderrString != "" {
 		log.Printf("stderr: %s", stderrString)
 	}
 
 	return stdoutString, err;	
-}
-
-func (ps *PowerShellCmd) RunFile(fileContents []byte, params ...string) (error) {
-	_, err := ps.OutputFile(fileContents, params...)
-	return err;
-}
-
-// Version gets the major version of PowerShell
-func (ps *PowerShellCmd) Version() (int64, error) {
-	versionOutput, err := ps.Output("$host.Version.Major")
-	if err != nil {
-		return 0, err
-	}
-	ver, err := strconv.ParseInt(versionOutput, 10, 16)
-
-	return ver, nil;	
 }
 
 func (ps *PowerShellCmd) getPowerShellPath() (string, error) {
@@ -133,18 +89,27 @@ func (ps *PowerShellCmd) getPowerShellPath() (string, error) {
 	return path, nil
 }
 
-func saveScript(fileContents []byte) (string, error) {
-	// TODO: check error state (disk could be full)
+func saveScript(fileContents string) (string, error) {
 	file, err := ioutil.TempFile(os.TempDir(), "ps")
 	if err != nil {
 		return "", err
 	}
 	
-	file.Write(fileContents)
-	_ = file.Close()
+	_, err = file.Write([]byte(fileContents))
+	if err != nil {
+		return "", err
+	}
+
+	err = file.Close()
+	if err != nil {
+		return "", err
+	}
 
 	newFilename := file.Name() + ".ps1"
-	os.Rename(file.Name(), newFilename)
+	err = os.Rename(file.Name(), newFilename)
+	if err != nil {
+		return "", err
+	}
 
 	return newFilename, nil
 }

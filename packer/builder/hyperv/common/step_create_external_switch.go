@@ -42,7 +42,7 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 	script.WriteLine("$names=@('ethernet','wi-fi','foo')")
 	script.WriteLine("$adapters=foreach($name in $names){Get-NetAdapter -physical -Name $name -ErrorAction SilentlyContinue | where status -eq 'up' }foreach($adapter in $adapters){$switch=Get-VMSwitch –SwitchType External | where {$_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription};if($switch -eq $null){$switch=New-VMSwitch -Name $switchName -NetAdapterName $adapter.Name -AllowManagementOS $true -Notes 'Parent OS, VMs, WiFi'};if($switch -ne $null){break}};if($switch -ne $null){Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter -VMSwitch $switch } else{ Write-Error 'No internet adapters found'}")
 
-	err = powershell.RunFile(script.Bytes(), vmName, packerExternalSwitchName)
+	err = powershell.Run(script.String(), vmName, packerExternalSwitchName)
 
 	if err != nil {
 		err := fmt.Errorf("Error creating switch: %s", err)
@@ -54,10 +54,10 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 
 	script.Reset()
 	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("(Get-VMNetworkAdapter -VMName $vmName).SwitchName}")
+	script.WriteLine("(Get-VMNetworkAdapter -VMName $vmName).SwitchName")
 
 	
-	cmdOut, err := powershell.OutputFile(script.Bytes(), vmName)
+	cmdOut, err := powershell.Output(script.String(), vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
@@ -115,7 +115,7 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 	script.WriteLine("param([string]$vmName,[string]$switchName)")
 	script.WriteLine("Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter –SwitchName $switchName")
 
-	err = powershell.RunFile(script.Bytes(), vmName, s.oldSwitchName)
+	err = powershell.Run(script.String(), vmName, s.oldSwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errMsg, err))
@@ -128,7 +128,7 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 	script.WriteLine("param([string]$switchName)")
 	script.WriteLine("$TestSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue;if($TestSwitch -ne $null){Remove-VMSwitch $sn -Force}")
 
-	err = powershell.RunFile(script.Bytes(), s.SwitchName)
+	err = powershell.Run(script.String(), s.SwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errMsg, err))

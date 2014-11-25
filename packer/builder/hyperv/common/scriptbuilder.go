@@ -19,10 +19,6 @@ func (b *ScriptBuilder) String() string {
 	return b.buffer.String()
 }
 
-func (b *ScriptBuilder) Bytes() []byte {
-	return b.buffer.Bytes()
-}
-
 func (b *ScriptBuilder) Reset() {
 	b.buffer.Reset()
 }

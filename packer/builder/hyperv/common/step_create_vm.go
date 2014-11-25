@@ -45,7 +45,7 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("$vhdPath = Join-Path -Path $path -ChildPath $vhdx")
 	script.WriteLine("New-VM -Name $vmName -Path $path -MemoryStartupBytes $memoryStartupBytes -NewVHDPath $vhdPath -NewVHDSizeBytes $newVHDSizeBytes -SwitchName $switchName")
 
-	err := powershell.RunFile(script.Bytes(), s.VMName, path, ram, diskSize, switchName)
+	err := powershell.Run(script.String(), s.VMName, path, ram, diskSize, switchName)
 	if err != nil {
 		err := fmt.Errorf("Error creating virtual machine: %s", err)
 		state.Put("error", err)
@@ -77,7 +77,7 @@ func (s *StepCreateVM) Cleanup(state multistep.StateBag) {
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Remove-VM -Name $vmName -Force")
 
-	err = powershell.RunFile(script.Bytes(), s.VMName)
+	err = powershell.Run(script.String(), s.VMName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting virtual machine: %s", err))

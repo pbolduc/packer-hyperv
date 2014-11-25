@@ -32,7 +32,7 @@ func (s *StepMountDvdDrive) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("param([string]$vmName,[string]$path)")
 	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $path")
 
-	err := powershell.RunFile(script.Bytes(), vmName, isoPath)
+	err := powershell.Run(script.String(), vmName, isoPath)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -66,7 +66,7 @@ func (s *StepMountDvdDrive) Cleanup(state multistep.StateBag) {
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $null")
 
-	err = powershell.RunFile(script.Bytes(), vmName)
+	err = powershell.Run(script.String(), vmName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errorMsg, err))

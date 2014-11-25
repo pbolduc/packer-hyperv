@@ -327,7 +327,7 @@ func (b *Builder) checkHostAvailableMemory() string {
 	var script hypervcommon.ScriptBuilder
 	script.WriteLine("(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024")
 
-	output, _ := powershell.OutputFile(script.Bytes())
+	output, _ := powershell.Output(script.String())
 
 	freeMB, _ := strconv.ParseFloat(output, 64)
 

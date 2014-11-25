@@ -49,7 +49,7 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("Export-VM -Name $vmName -Path $path")
 
 	powershell := new(powershell.PowerShellCmd)
-	err = powershell.RunFile(script.Bytes(), vmName, vmExportPath)
+	err = powershell.Run(script.String(), vmName, vmExportPath)
 
 	if err != nil {
 		errorMsg = "Error exporting vm: %s"
@@ -70,7 +70,7 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("Copy-Item -Path $srcPath/$vmDir -Destination $dstPath")
 	script.WriteLine("Copy-Item -Path $srcPath/$vmDir/*.xml -Destination $dstPath/$vmDir")
 
-	err = powershell.RunFile(script.Bytes(), expPath, outputPath, vhdDir, vmDir)
+	err = powershell.Run(script.String(), expPath, outputPath, vhdDir, vmDir)
 	if err != nil {
 		errorMsg = "Error exporting vm: %s"
 		err := fmt.Errorf(errorMsg, err)

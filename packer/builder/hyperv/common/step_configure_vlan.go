@@ -36,7 +36,7 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("param([string]$networkAdapterName,[string]$vlanId)")
 	script.WriteLine("Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $networkAdapterName -Access -VlanId $vlanId")
 
-	err := powershell.RunFile(script.Bytes(), switchName, vlanId)
+	err := powershell.Run(script.String(), switchName, vlanId)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -49,7 +49,7 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("param([string]$vmName,[string]$vlanId)")
 	script.WriteLine("Set-VMNetworkAdapterVlan -VMName $vmName -Access -VlanId $vlanId")
 
-	err = powershell.RunFile(script.Bytes(), vmName, vlanId)
+	err = powershell.Run(script.String(), vmName, vlanId)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)

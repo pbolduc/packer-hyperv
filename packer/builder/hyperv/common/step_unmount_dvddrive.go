@@ -29,7 +29,7 @@ func (s *StepUnmountDvdDrive) Run(state multistep.StateBag) multistep.StepAction
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $null")
 
-	err := powershell.RunFile(script.Bytes(), vmName)
+	err := powershell.Run(script.String(), vmName)
 
 	if err != nil {
 		err := fmt.Errorf("Error unmounting dvd drive: %s", err)

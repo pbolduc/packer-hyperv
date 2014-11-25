@@ -34,7 +34,7 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts $ip -Force -Concatenate")
 
 	var err error
-	err = ps.RunFile(script.Bytes(), ip)
+	err = ps.Run(script.String(), ip)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -82,5 +82,5 @@ func (s *StepSetRemoting) Cleanup(state multistep.StateBag) {
 	script.WriteLine("Set-Item -Path WSMan:\\localhost\\Client\\TrustedHosts -Value $newTrustedHosts -Force")
 
 	ps := new(ps.PowerShellCmd)
-	_ = ps.RunFile(script.Bytes(), s.ip)
+	_ = ps.Run(script.String(), s.ip)
 }

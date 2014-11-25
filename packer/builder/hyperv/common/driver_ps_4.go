@@ -86,8 +86,9 @@ func (d *HypervPS4Driver) verifyPSHypervModule() error {
 
 	versionCmd := "function foo(){try{ $commands = Get-Command -Module Hyper-V;if($commands.Length -eq 0){return $false} }catch{return $false}; return $true} foo"
 
+
 	powershell  := new(powershell.PowerShellCmd)
-	cmdOut, err := powershell.OutputScriptBlock(versionCmd)
+	cmdOut, err := powershell.Output(versionCmd)
 	if err != nil {
 		return err
 	}
@@ -114,7 +115,7 @@ func (d *HypervPS4Driver) verifyElevatedMode() error {
 	script.WriteLine("$administratorRole=[System.Security.Principal.WindowsBuiltInRole]::Administrator;")
 	script.WriteLine("return $principal.IsInRole($administratorRole);")
 
-	cmdOut, err := powershell.OutputFile(script.Bytes());
+	cmdOut, err := powershell.Output(script.String());
 	if err != nil {
 		return err
 	}

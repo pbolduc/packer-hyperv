@@ -55,7 +55,7 @@ func (s *StepMountFloppydrive) Run(state multistep.StateBag) multistep.StepActio
 	script.WriteLine("param([string]$vmName, [string]$path)")
 	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $path")
 
-	err = powershell.RunFile(script.Bytes(), vmName, floppyPath)
+	err = powershell.Run(script.String(), vmName, floppyPath)
 
 	if err != nil {
 		state.Put("error", fmt.Errorf("Error mounting floppy drive: %s", err))
@@ -85,7 +85,7 @@ func (s *StepMountFloppydrive) Cleanup(state multistep.StateBag) {
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $null")
 
-	err := powershell.RunFile(script.Bytes(), vmName)
+	err := powershell.Run(script.String(), vmName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf(errorMsg, err))

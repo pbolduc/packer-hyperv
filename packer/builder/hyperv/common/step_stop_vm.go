@@ -31,7 +31,7 @@ func (s *StepStopVm) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("    Stop-VM -VM $vm")
 	script.WriteLine("}")
 
-	err := powershell.RunFile(script.Bytes(), vmName)
+	err := powershell.Run(script.String(), vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)

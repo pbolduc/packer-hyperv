@@ -30,7 +30,7 @@ func (s *StepRebootVm) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Restart-VM $vmName -Force")
 
-	err := powershell.RunFile(script.Bytes(), vmName)
+	err := powershell.Run(script.String(), vmName)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)

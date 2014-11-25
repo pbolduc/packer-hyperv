@@ -6,7 +6,7 @@ package common
 
 import (
 	"fmt"
-	"bytes"
+	"strings"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
@@ -33,6 +33,8 @@ type StepCreateSwitch struct {
 	NetAdapterName string
 	// Specifies the interface description of the network adapter to be bound to the switch to be created.
 	NetAdapterInterfaceDescription string
+
+	createdSwitch  bool
 }
 
 func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
@@ -45,16 +47,18 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 
 	powershell := new(powershell.PowerShellCmd)
 
-	ui.Say(fmt.Sprintf("Creating %v switch...", s.SwitchType))
+	ui.Say(fmt.Sprintf("Creating switch '%v' if required...", s.SwitchName))
 
 	var script ScriptBuilder
 	script.WriteLine("param([string]$switchName,[string]$switchType)")
 	script.WriteLine("$switches = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue")
 	script.WriteLine("if ($switches.Count -eq 0) {")
 	script.WriteLine("  New-VMSwitch -Name $switchName -SwitchType $switchType")
+	script.WriteLine("  return $true")
 	script.WriteLine("}")
+	script.WriteLine("return $false")
 
-	err := powershell.RunFile(script.Bytes(), s.SwitchName, s.SwitchType)
+	cmdOut, err := powershell.Output(script.String(), s.SwitchName, s.SwitchType)
 
 	if err != nil {
 		err := fmt.Errorf("Error creating switch: %s", err)
@@ -64,6 +68,12 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 		return multistep.ActionHalt
 	}
 
+	s.createdSwitch = strings.TrimSpace(string(cmdOut)) == "True"
+
+	if !s.createdSwitch {
+		ui.Say(fmt.Sprintf("    switch '%v' already exists. Will not delete on cleanup...", s.SwitchName))
+	}
+
 	// Set the final name in the state bag so others can use it
 	state.Put("SwitchName", s.SwitchName)
 
@@ -71,7 +81,7 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 }
 
 func (s *StepCreateSwitch) Cleanup(state multistep.StateBag) {
-	if len(s.SwitchName) == 0 {
+	if len(s.SwitchName) == 0 || !s.createdSwitch {
 		return
 	}
 
@@ -86,14 +96,9 @@ func (s *StepCreateSwitch) Cleanup(state multistep.StateBag) {
 	script.WriteLine("param([string]$switchName)")
 	script.WriteLine("Remove-VMSwitch $switchName -Force")
 
-	err := powershell.RunFile(script.Bytes(), s.SwitchName)
+	err := powershell.Run(script.String(), s.SwitchName)
 
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting switch: %s", err))
 	}
-}
-
-func writeLine(buffer bytes.Buffer, s string) {
-	buffer.WriteString(s)
-	buffer.WriteString("\n")
 }

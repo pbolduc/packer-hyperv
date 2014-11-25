@@ -30,7 +30,7 @@ func (s *StepUnmountFloppyDrive) Run(state multistep.StateBag) multistep.StepAct
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $null")
 
-	err := powershell.RunFile(script.Bytes(), vmName)
+	err := powershell.Run(script.String(), vmName)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
