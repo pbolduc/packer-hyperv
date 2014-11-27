@@ -1,4 +1,4 @@
-package common
+package powershell
 
 import (
 	"bytes"
@@ -13,6 +13,11 @@ func (b *ScriptBuilder) WriteLine(s string) (n int, err error) {
 	b.buffer.WriteString("\n")
 
 	return n+1, err
+}
+
+func (b *ScriptBuilder) WriteString(s string) (n int, err error) {
+	n, err = b.buffer.WriteString(s);
+	return n, err
 }
 
 func (b *ScriptBuilder) String() string {

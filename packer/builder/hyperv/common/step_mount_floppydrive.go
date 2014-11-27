@@ -49,12 +49,11 @@ func (s *StepMountFloppydrive) Run(state multistep.StateBag) multistep.StepActio
 
 	ui.Say("Mounting floppy drive...")
 
-	powershell := new(powershell.PowerShellCmd)
-
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$path)")
 	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $path")
 
+	powershell := new(powershell.PowerShellCmd)
 	err = powershell.Run(script.String(), vmName, floppyPath)
 
 	if err != nil {
@@ -79,12 +78,11 @@ func (s *StepMountFloppydrive) Cleanup(state multistep.StateBag) {
 
 	ui.Say("Unmounting floppy drive...")
 
-	powershell := new(powershell.PowerShellCmd)
-
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $null")
 
+	powershell := new(powershell.PowerShellCmd)
 	err := powershell.Run(script.String(), vmName)
 
 	if err != nil {

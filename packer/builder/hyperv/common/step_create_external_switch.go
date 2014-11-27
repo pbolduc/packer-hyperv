@@ -30,18 +30,17 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 	errorMsg := "Error createing external switch: %s"
 	var err error
 
-	powershell := new(powershell.PowerShellCmd)
-
 	ui.Say("Creating external switch...")
 
 	packerExternalSwitchName := "paes_" + uuid.New()
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName,[string]$switchName)")
 	script.WriteLine("$switch=$null")
 	script.WriteLine("$names=@('ethernet','wi-fi','foo')")
 	script.WriteLine("$adapters=foreach($name in $names){Get-NetAdapter -physical -Name $name -ErrorAction SilentlyContinue | where status -eq 'up' }foreach($adapter in $adapters){$switch=Get-VMSwitch –SwitchType External | where {$_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription};if($switch -eq $null){$switch=New-VMSwitch -Name $switchName -NetAdapterName $adapter.Name -AllowManagementOS $true -Notes 'Parent OS, VMs, WiFi'};if($switch -ne $null){break}};if($switch -ne $null){Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter -VMSwitch $switch } else{ Write-Error 'No internet adapters found'}")
 
+	powershell := new(powershell.PowerShellCmd)
 	err = powershell.Run(script.String(), vmName, packerExternalSwitchName)
 
 	if err != nil {
@@ -97,8 +96,6 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 	ui := state.Get("ui").(packer.Ui)
 	vmName := state.Get("vmName").(string)
 
-	powershell := new(powershell.PowerShellCmd)
-
 	ui.Say("Unregistering and deleting external switch...")
 
 	var err error = nil
@@ -111,10 +108,11 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName,[string]$switchName)")
 	script.WriteLine("Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter –SwitchName $switchName")
 
+	powershell := new(powershell.PowerShellCmd)
 	err = powershell.Run(script.String(), vmName, s.oldSwitchName)
 
 	if err != nil {

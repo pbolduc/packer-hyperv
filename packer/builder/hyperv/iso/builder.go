@@ -39,15 +39,46 @@ type Builder struct {
 }
 
 type config struct {
+	// The size, in megabytes, of the hard disk to create for the VM. 
+	// By default, this is 130048 (about 127 GB).
 	DiskSize            uint     			`mapstructure:"disk_size"`
+	// The size, in megabytes, of the computer memory in the VM. 
+	// By default, this is 1024 (about 1 GB).
 	RamSizeMB           uint     			`mapstructure:"ram_size_mb"`
-	FloppyFiles         []string            `mapstructure:"floppy_files"`	
+	// A list of files to place onto a floppy disk that is attached when the 
+	// VM is booted. This is most useful for unattended Windows installs, 
+	// which look for an Autounattend.xml file on removable media. By default, 
+	// no floppy will be attached. All files listed in this setting get 
+	// placed into the root directory of the floppy and the floppy is attached 
+	// as the first floppy device. Currently, no support exists for creating 
+	// sub-directories on the floppy. Wildcard characters (*, ?, and []) 
+	// are allowed. Directory names are also allowed, which will add all 
+	// the files found in the directory to the floppy.
+	FloppyFiles         []string            `mapstructure:"floppy_files"`
+	// The checksum for the OS ISO file. Because ISO files are so large, 
+	// this is required and Packer will verify it prior to booting a virtual 
+	// machine with the ISO attached. The type of the checksum is specified 
+	// with iso_checksum_type, documented below.
 	ISOChecksum         string              `mapstructure:"iso_checksum"`
+	// The type of the checksum specified in iso_checksum. Valid values are 
+	// "none", "md5", "sha1", "sha256", or "sha512" currently. While "none" 
+	// will skip checksumming, this is not recommended since ISO files are 
+	// generally large and corruption does happen from time to time.
 	ISOChecksumType     string              `mapstructure:"iso_checksum_type"`
+	// A URL to the ISO containing the installation image. This URL can be 
+	// either an HTTP URL or a file URL (or path to a file). If this is an 
+	// HTTP URL, Packer will download it and cache it between runs.
+	RawSingleISOUrl 	string 				`mapstructure:"iso_url"`
+	// Multiple URLs for the ISO to download. Packer will try these in order. 
+	// If anything goes wrong attempting to download or while downloading a 
+	// single URL, it will move on to the next. All URLs must point to the 
+	// same file (same checksum). By default this is empty and iso_url is 
+	// used. Only one of iso_url or iso_urls can be specified.
 	ISOUrls             []string            `mapstructure:"iso_urls"`
+	// This is the name of the new virtual machine. 
+	// By default this is "packer-BUILDNAME", where "BUILDNAME" is the name of the build.
 	VMName              string              `mapstructure:"vm_name"`
 
-	RawSingleISOUrl 	string 				`mapstructure:"iso_url"`
 
 	SleepTimeMinutes 	time.Duration		`mapstructure:"wait_time_minutes"`
 	ProductKey 			string				`mapstructure:"product_key"`
@@ -214,15 +245,17 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		},
 
 		// wait for the first post-install boot to complete
-		&hypervcommon.StepSleep{ 
-			Minutes: 2,
+		// &hypervcommon.StepSleep{ 
+		// 	Minutes: 2,
+		// },
+		new(hypervcommon.StepConfigureIp),
+
+		&hypervcommon.StepSetRemoting{
+			Username: "vagrant",
+			Password: "vagrant",
 		},
 
-		// if guest OS is windows, WinRM should be installed by 
-		//new(hypervcommon.StepWaitForWinRM),
-
-		//new(hypervcommon.StepSetRemoting),
-		//new(hypervcommon.StepCheckRemoting),
+		new(hypervcommon.StepCheckRemoting),
 
 		//new(StepUpdateIntegrationServices),
 
@@ -322,11 +355,10 @@ func (b *Builder) checkRamSize() error {
 
 func (b *Builder) checkHostAvailableMemory() string {
 
-	powershell := new(powershell.PowerShellCmd)
-
-	var script hypervcommon.ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024")
 
+	powershell := new(powershell.PowerShellCmd)
 	output, _ := powershell.Output(script.String())
 
 	freeMB, _ := strconv.ParseFloat(output, 64)

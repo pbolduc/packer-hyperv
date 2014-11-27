@@ -45,11 +45,9 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 		s.SwitchType = DefaultSwitchType
 	}
 
-	powershell := new(powershell.PowerShellCmd)
-
 	ui.Say(fmt.Sprintf("Creating switch '%v' if required...", s.SwitchName))
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$switchName,[string]$switchType)")
 	script.WriteLine("$switches = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue")
 	script.WriteLine("if ($switches.Count -eq 0) {")
@@ -58,6 +56,7 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 	script.WriteLine("}")
 	script.WriteLine("return $false")
 
+	powershell := new(powershell.PowerShellCmd)
 	cmdOut, err := powershell.Output(script.String(), s.SwitchName, s.SwitchType)
 
 	if err != nil {
@@ -88,14 +87,13 @@ func (s *StepCreateSwitch) Cleanup(state multistep.StateBag) {
 	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
-	powershell := new(powershell.PowerShellCmd)
-
 	ui.Say("Unregistering and deleting switch...")
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$switchName)")
 	script.WriteLine("Remove-VMSwitch $switchName -Force")
 
+	powershell := new(powershell.PowerShellCmd)
 	err := powershell.Run(script.String(), s.SwitchName)
 
 	if err != nil {

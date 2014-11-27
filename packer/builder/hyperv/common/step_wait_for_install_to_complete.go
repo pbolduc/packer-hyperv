@@ -14,6 +14,11 @@ import (
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
+const (
+	SleepSeconds = 10
+)
+
+
 type StepWaitForInstallToComplete struct {
 	ExpectedRebootCount uint
 	ActionName string
@@ -30,7 +35,7 @@ func (s *StepWaitForInstallToComplete) Run(state multistep.StateBag) multistep.S
 	var rebootCount uint
 	var lastUptime uint64
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("(Get-VM -Name $vmName).Uptime.TotalSeconds")
 
@@ -55,7 +60,7 @@ func (s *StepWaitForInstallToComplete) Run(state multistep.StateBag) multistep.S
 		lastUptime = uptime
 
 		if (rebootCount < s.ExpectedRebootCount) {
-			time.Sleep(time.Second);
+			time.Sleep(time.Second * SleepSeconds);
 		}
 	}
 

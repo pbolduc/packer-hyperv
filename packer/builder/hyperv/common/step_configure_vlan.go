@@ -28,14 +28,13 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 	vmName := state.Get("vmName").(string)
 	switchName := state.Get("SwitchName").(string)
 
-	powershell := new(powershell.PowerShellCmd)
-
 	ui.Say("Configuring vlan...")
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$networkAdapterName,[string]$vlanId)")
 	script.WriteLine("Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $networkAdapterName -Access -VlanId $vlanId")
 
+	powershell := new(powershell.PowerShellCmd)
 	err := powershell.Run(script.String(), switchName, vlanId)
 
 	if err != nil {

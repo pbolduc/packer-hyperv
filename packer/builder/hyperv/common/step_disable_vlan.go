@@ -24,14 +24,13 @@ func (s *StepDisableVlan) Run(state multistep.StateBag) multistep.StepAction {
 	switchName := state.Get("SwitchName").(string)
 	var err error
 
-	powershell := new(powershell.PowerShellCmd)
-
 	ui.Say("Disabling vlan...")
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Set-VMNetworkAdapterVlan -VMName $vmName -Untagged")
 
+	powershell := new(powershell.PowerShellCmd)
 	err = powershell.Run(script.String(), vmName)
 
 	if err != nil {

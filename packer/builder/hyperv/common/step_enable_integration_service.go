@@ -22,12 +22,11 @@ func (s *StepEnableIntegrationService) Run(state multistep.StateBag) multistep.S
 	vmName := state.Get("vmName").(string)
 	s.name = "Guest Service Interface"
 
-	powershell := new(powershell.PowerShellCmd)
-
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$integrationServiceName)")
 	script.WriteLine("Enable-VMIntegrationService -VMName $vmName -Name $integrationServiceName")
 
+	powershell := new(powershell.PowerShellCmd)
 	err := powershell.Run(script.String(), vmName, s.name)
 
 	if err != nil {

@@ -44,7 +44,7 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Exporting vm...")
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$path)")
 	script.WriteLine("Export-VM -Name $vmName -Path $path")
 

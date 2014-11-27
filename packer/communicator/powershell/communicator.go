@@ -7,16 +7,14 @@ package powershell
 import (
 //	"bufio"
 	"fmt"
-	"bytes"
 	"github.com/mitchellh/packer/packer"
 	"io"
 //	"io/ioutil"
 	"log"
 	"path/filepath"
-	"os/exec"
 	"os"
-	"strings"
 	"container/list"
+	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 )
 
 
@@ -47,37 +45,30 @@ func (c *comm) Start(cmd *packer.RemoteCmd) (err error) {
 	username := c.config.Username
 	password := c.config.Password
 	remoteHost := c.config.RemoteHostIP
-//	ui := c.config.Ui
-
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock { ")
-	blockBuffer.WriteString("$ip4 = '" + remoteHost + "';")
-	blockBuffer.WriteString("$username = '" + username + "';")
-	blockBuffer.WriteString("$password = '" + password + "';")
-	blockBuffer.WriteString("$secstr = New-Object -TypeName System.Security.SecureString;")
-	blockBuffer.WriteString("$password.ToCharArray() | ForEach-Object {$secstr.AppendChar($_)};")
-	blockBuffer.WriteString("$cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $username, $secstr;")
-//	blockBuffer.WriteString("Invoke-Command -ComputerName $ip4 -ScriptBlock { " + cmd.Command + " } -credential $cred")
-	blockBuffer.WriteString("Invoke-Command -ComputerName $ip4 ")
-	blockBuffer.WriteString(cmd.Command)
-	blockBuffer.WriteString(" -credential $cred")
-	blockBuffer.WriteString("}")
-
-	log.Printf("Start blockBuffer: %s",  blockBuffer.String())
-
-	script := exec.Command("powershell", blockBuffer.String())
-
-	script.Stdin = cmd.Stdin
-	script.Stdout = cmd.Stdout
-	script.Stderr = cmd.Stderr
 
 	log.Printf(fmt.Sprintf("Executing remote script..."))
-	err = script.Run()
 
-//TODO: remove the next line
-//	err = nil
+	var script powershell.ScriptBuilder
+	script.WriteLine("param([string]$username,[string]$password,[string]$computerName)")
+	script.WriteLine("$securePassword = ConvertTo-SecureString $password -AsPlainText -Force")
+	script.WriteLine("$credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $securePassword")
+	script.WriteString("Invoke-Command -ComputerName $computerName ")
+	script.WriteString(cmd.Command)
+	script.WriteString(" -Credential $credential")
 
-	return
+	powershell := new(powershell.PowerShellCmd)
+
+	if cmd.Stdout  != nil {
+		powershell.Stdout = cmd.Stdout
+	}
+
+	if cmd.Stderr != nil {
+		powershell.Stderr = cmd.Stderr
+	}
+
+	err = powershell.Run(script.String(), username, password, remoteHost)
+
+	return err
 }
 
 func (c *comm) Upload(string, io.Reader, *os.FileInfo) error {
@@ -114,43 +105,6 @@ func (c *comm) Download(string, io.Writer) error {
 	panic("not implemented yet")
 }
 
-// region private helpers
-/*
-func (c *comm) executeScriptFileOnVm(scriptPath string) error {
-	username := c.config.Username
-	password := c.config.Password
-	remoteHost := c.config.RemoteHostIP
-
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock { ")
-	blockBuffer.WriteString("$ip4 = '" + remoteHost + "';")
-	blockBuffer.WriteString("$username = '" + username + "';")
-	blockBuffer.WriteString("$password = '" + password + "';")
-	blockBuffer.WriteString("$secstr = New-Object -TypeName System.Security.SecureString;")
-	blockBuffer.WriteString("$password.ToCharArray() | ForEach-Object {$secstr.AppendChar($_)};")
-	blockBuffer.WriteString("$cred = new-object -typename System.Management.Automation.PSCredential -argumentlist $username, $secstr;")
-	blockBuffer.WriteString("Invoke-Command -ComputerName $ip4 -filepath " + scriptPath + " -credential $cred")
-	blockBuffer.WriteString("}")
-
-//	ui.Say(fmt.Sprintf("Executing the script on the VM..."))
-
-	script := exec.Command("powershell", blockBuffer.String())
-
-	var stdout, stderr bytes.Buffer
-
-	script.Stdout = &stdout
-	script.Stderr = &stderr
-
-	err := script.Run()
-
-//	stdoutString := strings.TrimSpace(stdout.String())
-
-//	ui.Say(stdoutString)
-
-	return err
-}
-*/
-
 func (c *comm) uploadFile(dscPath string, srcPath string) error {
 
 	dscPath = filepath.FromSlash(dscPath)
@@ -158,41 +112,12 @@ func (c *comm) uploadFile(dscPath string, srcPath string) error {
 
 	vmName := c.config.VmName
 
-	var blockBuffer bytes.Buffer
-	blockBuffer.WriteString("Invoke-Command -scriptblock { ")
-	blockBuffer.WriteString("Copy-VMFile ")
-	blockBuffer.WriteString("'" + vmName + "' ")
-	blockBuffer.WriteString("-SourcePath ")
-	blockBuffer.WriteString("'" + srcPath + "' ")
-	blockBuffer.WriteString("-DestinationPath ")
-	blockBuffer.WriteString("'" + dscPath + "' ")
-	blockBuffer.WriteString("-CreateFullPath -FileSource Host -Force ")
-	blockBuffer.WriteString("}")
+	var script powershell.ScriptBuilder
+	script.WriteLine("param([string]$vmName,[string]$sourcePath,[string]$destinationPath)")
+	script.WriteLine("Copy-VMFile -Name $vmName -SourcePath $sourcePath -DestinationPath $destinationPath -CreateFullPath -FileSource Host -Force")
 
-	log.Printf("uploadFile blockBuffer: %s",  blockBuffer.String())
-
-	script := exec.Command("powershell", blockBuffer.String())
-
-	var stdout, stderr bytes.Buffer
-
-	script.Stdout = &stdout
-	script.Stderr = &stderr
-
-	err := script.Run()
-
-	stderrString := strings.TrimSpace(stdout.String())
-	stdoutString := strings.TrimSpace(stdout.String())
-
-	log.Printf("stdout: %s", stdoutString)
-	log.Printf("stderr: %s", stderrString)
-
-	if _, ok := err.(*exec.ExitError); ok {
-		err = fmt.Errorf("uploadFile error: %s", stderrString)
-	}
-
-	if len(stderrString) > 0 {
-		err = fmt.Errorf("uploadFile error: %s", stderrString)
-	}
+	powershell := new(powershell.PowerShellCmd)
+	err := powershell.Run(script.String(), vmName, srcPath, dscPath)
 
 	return err
 }

@@ -37,14 +37,13 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	diskSize := strconv.FormatInt(diskSizeBytes, 10)
 	switchName := s.SwitchName
 
-	powershell := new(powershell.PowerShellCmd)
-
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName, [string]$path, [long]$memoryStartupBytes, [long]$newVHDSizeBytes, [string]$switchName)")
 	script.WriteLine("$vhdx = $vmName + '.vhdx'")
 	script.WriteLine("$vhdPath = Join-Path -Path $path -ChildPath $vhdx")
 	script.WriteLine("New-VM -Name $vmName -Path $path -MemoryStartupBytes $memoryStartupBytes -NewVHDPath $vhdPath -NewVHDSizeBytes $newVHDSizeBytes -SwitchName $switchName")
 
+	powershell := new(powershell.PowerShellCmd)
 	err := powershell.Run(script.String(), s.VMName, path, ram, diskSize, switchName)
 	if err != nil {
 		err := fmt.Errorf("Error creating virtual machine: %s", err)
@@ -67,16 +66,15 @@ func (s *StepCreateVM) Cleanup(state multistep.StateBag) {
 	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
-	powershell := new(powershell.PowerShellCmd)
-
 	ui.Say("Unregistering and deleting virtual machine...")
 
 	var err error = nil
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Remove-VM -Name $vmName -Force")
 
+	powershell := new(powershell.PowerShellCmd)
 	err = powershell.Run(script.String(), s.VMName)
 
 	if err != nil {

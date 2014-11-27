@@ -7,6 +7,7 @@ package powershell
 import (
 	"fmt"
 	"log"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -15,6 +16,8 @@ import (
 )
 
 type PowerShellCmd struct {
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
 func (ps *PowerShellCmd) Run(fileContents string, params ...string) error {
@@ -53,6 +56,14 @@ func (ps *PowerShellCmd) Output(fileContents string, params ...string) (string, 
 	command.Stderr = &stderr
 
 	err = command.Run()
+
+	if ps.Stdout != nil {
+		stdout.WriteTo(ps.Stdout)
+	}
+
+	if ps.Stderr != nil {
+		stderr.WriteTo(ps.Stderr)
+	}
 
 	stderrString := strings.TrimSpace(stderr.String())
 

@@ -13,6 +13,9 @@ import (
 )
 
 type StepSetRemoting struct {
+	Username string
+	Password string
+
 	comm packer.Communicator
 	ip string
 }
@@ -25,16 +28,15 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 	vmName := state.Get("vmName").(string)
 	ip := state.Get("ip").(string)
 
-	ps := new(ps.PowerShellCmd)
 
-	ui.Say("Adding to TrustedHosts (require elevated mode)")
+	ui.Say("Adding to TrustedHosts (requires elevated mode)")
 
-	var script ScriptBuilder
+	var script ps.ScriptBuilder
 	script.WriteLine("param([string]$ip)")
 	script.WriteLine("Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts $ip -Force -Concatenate")
 
-	var err error
-	err = ps.Run(script.String(), ip)
+	ps := new(ps.PowerShellCmd)
+	err := ps.Run(script.String(), ip)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -45,8 +47,8 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 
 	comm, err := powershell.New(
 		&powershell.Config{
-			Username: "vagrant",
-			Password: "vagrant",
+			Username: s.Username,
+			Password: s.Password,
 			RemoteHostIP: ip,
 			VmName: vmName,
 			Ui: ui,
@@ -74,7 +76,7 @@ func (s *StepSetRemoting) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	var script ScriptBuilder
+	var script ps.ScriptBuilder
 	script.WriteLine("param([string]$ip)")
 	script.WriteLine("[System.Collections.ArrayList] $hosts = (Get-Item -Path WSMan:\\localhost\\Client\\TrustedHosts).Value.Split(',')")
 	script.WriteLine("$hosts.Remove($ip)")

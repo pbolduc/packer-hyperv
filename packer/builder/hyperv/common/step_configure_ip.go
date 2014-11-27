@@ -16,7 +16,6 @@ import (
 
 
 type StepConfigureIp struct {
-	ip string
 }
 
 func (s *StepConfigureIp) Run(state multistep.StateBag) multistep.StepAction {
@@ -28,7 +27,7 @@ func (s *StepConfigureIp) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Configuring ip address...")
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("try {")
 	script.WriteLine("  $adapter = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue")
@@ -75,28 +74,7 @@ func (s *StepConfigureIp) Run(state multistep.StateBag) multistep.StepAction {
 	}
 
 	ui.Say("ip address is " + ip)
-/*
-	ui.Say("Adding to TrustedHosts (require elevated mode)")
-
-	blockBuffer.Reset()
-	blockBuffer.WriteString("start-process powershell -verb runas -argument ")
-	blockBuffer.WriteString("\"Invoke-Command -scriptblock { Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts '")
-	blockBuffer.WriteString(ip)
-	blockBuffer.WriteString("' -force}\"")
-
-	err = driver.HypervManage(blockBuffer.String())
-
-	if err != nil {
-		err := fmt.Errorf(errorMsg, err)
-		state.Put("error", err)
-		ui.Error(err.Error())
-		return multistep.ActionHalt
-	}
-*/
-	s.ip = ip
-
 	state.Put("ip", ip)
-
 
 	return multistep.ActionContinue
 }

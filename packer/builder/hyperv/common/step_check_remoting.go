@@ -21,7 +21,7 @@ func (s *StepCheckRemoting) Run(state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packer.Ui)
 	comm := state.Get("communicator").(packer.Communicator)
 
-	var err error
+	//var err error
 	errorMsg := "Error step CheckRemoting: %s"
 
 	// check the remote connection is ready
@@ -32,10 +32,7 @@ func (s *StepCheckRemoting) Run(state multistep.StateBag) multistep.StepAction {
 
 		magicWord := "ready"
 
-		var blockBuffer bytes.Buffer
-		blockBuffer.WriteString("{ Write-Host '"+ magicWord +"' }")
-
-		cmd.Command = "-ScriptBlock " + blockBuffer.String()
+		cmd.Command = "-ScriptBlock { Write-Host '"+ magicWord +"' }"
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
 
@@ -46,13 +43,13 @@ func (s *StepCheckRemoting) Run(state multistep.StateBag) multistep.StepAction {
 		ui.Say("Checking PS remoting is ready...")
 
 		for count > 0 {
-			err = comm.Start(&cmd)
-			if err != nil {
-				err := fmt.Errorf(errorMsg, "Remote connection failed")
-				state.Put("error", err)
-				ui.Error(err.Error())
-				return multistep.ActionHalt
-			}
+			_ = comm.Start(&cmd)
+			// if count == 0 && err != nil {
+			// 	err := fmt.Errorf(errorMsg, "Remote connection failed")
+			// 	state.Put("error", err)
+			// 	ui.Error(err.Error())
+			// 	return multistep.ActionHalt
+			// }
 
 			stderrString := strings.TrimSpace(stderr.String())
 			stdoutString := strings.TrimSpace(stdout.String())

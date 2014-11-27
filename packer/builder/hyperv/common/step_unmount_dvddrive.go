@@ -21,14 +21,14 @@ func (s *StepUnmountDvdDrive) Run(state multistep.StateBag) multistep.StepAction
 	ui := state.Get("ui").(packer.Ui)
 
 	vmName := state.Get("vmName").(string)
-	powershell := new(powershell.PowerShellCmd)
 	
 	ui.Say("Unmounting dvd drive...")
 
-	var script ScriptBuilder
+	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName)")
 	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $null")
 
+	powershell := new(powershell.PowerShellCmd)
 	err := powershell.Run(script.String(), vmName)
 
 	if err != nil {
