@@ -257,7 +257,10 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 
 		new(hypervcommon.StepCheckRemoting),
 
-		//new(StepUpdateIntegrationServices),
+		&hypervcommon.StepUpdateIntegrationServices{
+			Username: "vagrant",
+			Password: "vagrant",
+		},
 
 		&common.StepProvision{},
 		//new(StepSysprep),

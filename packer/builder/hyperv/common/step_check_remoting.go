@@ -51,11 +51,8 @@ func (s *StepCheckRemoting) Run(state multistep.StateBag) multistep.StepAction {
 			// 	return multistep.ActionHalt
 			// }
 
-			stderrString := strings.TrimSpace(stderr.String())
+			//stderrString := strings.TrimSpace(stderr.String())
 			stdoutString := strings.TrimSpace(stdout.String())
-
-			log.Printf("stdout: %s", stdoutString)
-			log.Printf("stderr: %s", stderrString)
 
 			if stdoutString == magicWord {
 				break;
