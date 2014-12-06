@@ -25,7 +25,7 @@ type comm struct {
 type Config struct {
 	Username string
 	Password string
-	RemoteHostIP string
+	RemoteHost string
 	VmName string
 	Ui packer.Ui
 }
@@ -44,14 +44,14 @@ func New(config *Config) (result *comm, err error) {
 func (c *comm) Start(cmd *packer.RemoteCmd) (err error) {
 	username := c.config.Username
 	password := c.config.Password
-	remoteHost := c.config.RemoteHostIP
+	remoteHost := c.config.RemoteHost
 
 	log.Printf(fmt.Sprintf("Executing remote script..."))
 
 	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$username,[string]$password,[string]$computerName)")
 	script.WriteLine("$securePassword = ConvertTo-SecureString $password -AsPlainText -Force")
-	script.WriteLine("$credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $username, $securePassword")
+	script.WriteLine("$credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $computerName\\$username, $securePassword")
 	script.WriteString("Invoke-Command -ComputerName $computerName ")
 	script.WriteString(cmd.Command)
 	script.WriteString(" -Credential $credential")

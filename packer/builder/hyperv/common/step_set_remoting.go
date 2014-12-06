@@ -17,7 +17,7 @@ type StepSetRemoting struct {
 	Password string
 
 	comm packer.Communicator
-	ip string
+	trustedHost string
 }
 
 func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
@@ -26,17 +26,20 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 
 	errorMsg := "Error StepRemoteSession: %s"
 	vmName := state.Get("vmName").(string)
-	ip := state.Get("ip").(string)
 
+	s.trustedHost = state.Get("hostname").(string)
+	if s.trustedHost == "" {
+		s.trustedHost = state.Get("ip").(string)
+	}
 
-	ui.Say("Adding to TrustedHosts (requires elevated mode)")
+	ui.Say("Adding '"+s.trustedHost+"' to TrustedHosts (requires elevated mode)")
 
 	var script ps.ScriptBuilder
-	script.WriteLine("param([string]$ip)")
-	script.WriteLine("Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts $ip -Force -Concatenate")
+	script.WriteLine("param([string]$trustedHost)")
+	script.WriteLine("Set-Item -path WSMan:\\localhost\\Client\\TrustedHosts $trustedHost -Force -Concatenate")
 
 	ps := new(ps.PowerShellCmd)
-	err := ps.Run(script.String(), ip)
+	err := ps.Run(script.String(), s.trustedHost)
 
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
@@ -49,7 +52,7 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 		&powershell.Config{
 			Username: s.Username,
 			Password: s.Password,
-			RemoteHostIP: ip,
+			RemoteHost: s.trustedHost,
 			VmName: vmName,
 			Ui: ui,
 		})
@@ -64,7 +67,6 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 	packerCommunicator := packer.Communicator(comm)
 
 	s.comm = packerCommunicator
-	s.ip = ip
 	state.Put("communicator", packerCommunicator)
 
 	return multistep.ActionContinue
@@ -72,17 +74,20 @@ func (s *StepSetRemoting) Run(state multistep.StateBag) multistep.StepAction {
 
 func (s *StepSetRemoting) Cleanup(state multistep.StateBag) {
 
-	if s.ip == "" {
+	if s.trustedHost == "" {
 		return
 	}
 
+	ui := state.Get("ui").(packer.Ui)
+	ui.Say("Removing '"+s.trustedHost+"' from TrustedHosts")
+
 	var script ps.ScriptBuilder
-	script.WriteLine("param([string]$ip)")
+	script.WriteLine("param([string]$trustedHost)")
 	script.WriteLine("[System.Collections.ArrayList] $hosts = (Get-Item -Path WSMan:\\localhost\\Client\\TrustedHosts).Value.Split(',')")
-	script.WriteLine("$hosts.Remove($ip)")
+	script.WriteLine("$hosts.Remove($trustedHost)")
 	script.WriteLine("$newTrustedHosts = $hosts.ToArray() -Join ','")
 	script.WriteLine("Set-Item -Path WSMan:\\localhost\\Client\\TrustedHosts -Value $newTrustedHosts -Force")
 
 	ps := new(ps.PowerShellCmd)
-	_ = ps.Run(script.String(), s.ip)
+	_ = ps.Run(script.String(), s.trustedHost)
 }

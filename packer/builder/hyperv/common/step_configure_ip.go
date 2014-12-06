@@ -74,11 +74,46 @@ func (s *StepConfigureIp) Run(state multistep.StateBag) multistep.StepAction {
 	}
 
 	ui.Say("ip address is " + ip)
+
+	hostName, err := s.getHostName(ip);
+	if err != nil {
+		state.Put("error", err)
+		ui.Error(err.Error())
+		return multistep.ActionHalt
+	}
+
+	ui.Say("hostname is " + hostName)
+
 	state.Put("ip", ip)
+	state.Put("hostname", hostName)
 
 	return multistep.ActionContinue
 }
 
 func (s *StepConfigureIp) Cleanup(state multistep.StateBag) {
 	// do nothing
+}
+
+
+func (s *StepConfigureIp) getHostName(ip string) (string, error) {
+
+	var script powershell.ScriptBuilder
+	script.WriteLine("param([string]$ip)")
+	script.WriteLine("try {")
+	script.WriteLine("  $HostName = [System.Net.Dns]::GetHostEntry($ip).HostName")
+	script.WriteLine("  if ($HostName -ne $null) {")
+	script.WriteLine("    $HostName = $HostName.Split('.')[0]")
+	script.WriteLine("  }")
+	script.WriteLine("  $HostName")
+	script.WriteLine("} catch { }")
+
+	//
+	powershell := new(powershell.PowerShellCmd)
+
+	cmdOut, err := powershell.Output(script.String(), ip);
+	if err != nil {
+		return "", err
+	}
+
+	return cmdOut, nil
 }

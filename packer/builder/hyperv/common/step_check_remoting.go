@@ -36,7 +36,7 @@ func (s *StepCheckRemoting) Run(state multistep.StateBag) multistep.StepAction {
 		cmd.Stdout = stdout
 		cmd.Stderr = stderr
 
-		count := 5
+		count := 60
 		var duration time.Duration = 1
 		sleepTime := time.Minute * duration
 
