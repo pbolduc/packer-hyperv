@@ -55,6 +55,8 @@ type config struct {
 	// are allowed. Directory names are also allowed, which will add all 
 	// the files found in the directory to the floppy.
 	FloppyFiles         []string            `mapstructure:"floppy_files"`
+	//
+	SecondaryDvdImages  []string            `mapstructure:"secondary_iso_images"`
 	// The checksum for the OS ISO file. Because ISO files are so large, 
 	// this is required and Packer will verify it prior to booting a virtual 
 	// machine with the ISO attached. The type of the checksum is specified 
@@ -238,6 +240,12 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 			RawSingleISOUrl: b.config.RawSingleISOUrl,
 		},
 		new(hypervcommon.StepMountFloppydrive),
+
+		&hypervcommon.StepMountSecondaryDvdImages{},
+
+		//
+		//
+		//
 		new(hypervcommon.StepStartVm),
 		&hypervcommon.StepWaitForInstallToComplete{ 
 			ExpectedRebootCount: 2, 
@@ -245,9 +253,10 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		},
 
 		// wait for the first post-install boot to complete
-		// &hypervcommon.StepSleep{ 
-		// 	Minutes: 2,
-		// },
+		&hypervcommon.StepSleep{ 
+			Minutes: 5,
+		},
+
 		new(hypervcommon.StepConfigureIp),
 
 		&hypervcommon.StepSetRemoting{
@@ -255,15 +264,13 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 			Password: "vagrant",
 		},
 
-		new(hypervcommon.StepCheckRemoting),
-
-		// &hypervcommon.StepUpdateIntegrationServices{
-		// 	Username: "vagrant",
-		// 	Password: "vagrant",
-		// },
+		&hypervcommon.StepCheckRemoting{},
 
 		&common.StepProvision{},
 		//new(StepSysprep),
+
+		// remove the integration services dvd drive
+		new(hypervcommon.StepUnmountIntegrationServices),
 
 		new(hypervcommon.StepUnmountFloppyDrive),
 		new(hypervcommon.StepUnmountDvdDrive),
