@@ -5,7 +5,8 @@
 package common
 
 import (
-	//"fmt"
+	"fmt"
+	"log"
 	"os"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
@@ -14,23 +15,25 @@ import (
 
 type StepMountSecondaryDvdImages struct {
 	Files [] string
-	dvdProperties []dvdControllerProperties
+	dvdProperties []DvdControllerProperties
 }
 
-type dvdControllerProperties struct {
-	controllerNumber string
-	controllerLocation string
+type DvdControllerProperties struct {
+	ControllerNumber string
+	ControllerLocation string
 }
 
 func (s *StepMountSecondaryDvdImages) Run(state multistep.StateBag) multistep.StepAction {
 	ui := state.Get("ui").(packer.Ui)
-	vmName := state.Get("vmName").(string)
-
 	ui.Say("Mounting secondary DVD images...")
+
+	vmName := state.Get("vmName").(string)
 
 	// should be able to mount up to 60 additional iso images using SCSI
 	// but Windows would only allow a max of 22 due to available drive letters
 	// Will Windows assign DVD drives to A: and B: ?
+
+	// For IDE, there are only 2 controllers (0,1) with 2 locations each (0,1)
 	dvdProperties, err := s.mountFiles(vmName);
 	if err != nil {
 		state.Put("error", err)
@@ -38,6 +41,8 @@ func (s *StepMountSecondaryDvdImages) Run(state multistep.StateBag) multistep.St
 		return multistep.ActionHalt
 	}
 	
+	log.Println(fmt.Sprintf("Saving DVD properties %s DVDs", len(dvdProperties)))
+
 	state.Put("secondary.dvd.properties", dvdProperties)
 
 	return multistep.ActionContinue
@@ -48,9 +53,9 @@ func (s *StepMountSecondaryDvdImages) Cleanup(state multistep.StateBag) {
 }
 
 
-func (s *StepMountSecondaryDvdImages) mountFiles(vmName string) ([]dvdControllerProperties, error) {
+func (s *StepMountSecondaryDvdImages) mountFiles(vmName string) ([]DvdControllerProperties, error) {
 
-	var dvdProperties []dvdControllerProperties
+	var dvdProperties []DvdControllerProperties
 
 	properties, err := s.addAndMountIntegrationServicesSetupDisk(vmName)
 	if err != nil {
@@ -72,7 +77,7 @@ func (s *StepMountSecondaryDvdImages) mountFiles(vmName string) ([]dvdController
 }
 
 
-func (s *StepMountSecondaryDvdImages) addAndMountIntegrationServicesSetupDisk(vmName string) (dvdControllerProperties, error) {
+func (s *StepMountSecondaryDvdImages) addAndMountIntegrationServicesSetupDisk(vmName string) (DvdControllerProperties, error) {
 
 	isoPath := os.Getenv("WINDIR") + "\\system32\\vmguest.iso"
 	properties, err := s.addAndMountDvdDisk(vmName, isoPath)
@@ -86,9 +91,9 @@ func (s *StepMountSecondaryDvdImages) addAndMountIntegrationServicesSetupDisk(vm
 
 
 
-func (s *StepMountSecondaryDvdImages) addAndMountDvdDisk(vmName string, isoPath string) (dvdControllerProperties, error) {
+func (s *StepMountSecondaryDvdImages) addAndMountDvdDisk(vmName string, isoPath string) (DvdControllerProperties, error) {
 
-	var properties dvdControllerProperties
+	var properties DvdControllerProperties
 	var script powershell.ScriptBuilder
 	powershell := new(powershell.PowerShellCmd)
 
@@ -128,8 +133,10 @@ func (s *StepMountSecondaryDvdImages) addAndMountDvdDisk(vmName string, isoPath 
 		return properties, err
 	}
 
-	properties.controllerNumber = controllerNumber
-	properties.controllerLocation = controllerLocation
+	log.Println(fmt.Sprintf("ISO %s mounted on DVD controller %v, location %v",isoPath, controllerNumber, controllerLocation))
+
+	properties.ControllerNumber = controllerNumber
+	properties.ControllerLocation = controllerLocation
 
 	return properties, nil
 }

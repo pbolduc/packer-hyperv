@@ -76,7 +76,7 @@ func (s *StepMountFloppydrive) Cleanup(state multistep.StateBag) {
 	vmName := state.Get("vmName").(string)
 	ui := state.Get("ui").(packer.Ui)
 
-	ui.Say("Unmounting floppy drive...")
+	ui.Say("Unmounting floppy drive (cleanup)...")
 
 	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName)")

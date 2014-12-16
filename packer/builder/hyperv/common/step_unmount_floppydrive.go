@@ -22,7 +22,7 @@ func (s *StepUnmountFloppyDrive) Run(state multistep.StateBag) multistep.StepAct
 	errorMsg := "Error Unmounting floppy drive: %s"
 	vmName := state.Get("vmName").(string)
 
-	ui.Say("Unmounting floppy drive...")
+	ui.Say("Unmounting floppy drive (Run)...")
 
 	var script powershell.ScriptBuilder
 	script.WriteLine("param([string]$vmName)")

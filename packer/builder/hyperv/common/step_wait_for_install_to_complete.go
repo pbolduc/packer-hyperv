@@ -18,6 +18,46 @@ const (
 	SleepSeconds = 10
 )
 
+type StepWaitForPowerOff struct {
+}
+
+func (s *StepWaitForPowerOff) Run(state multistep.StateBag) multistep.StepAction {
+	ui := state.Get("ui").(packer.Ui)
+	vmName := state.Get("vmName").(string)
+	ui.Say("Waiting for vm to be powered down...")
+
+	// unless the person has a super fast disk, it should take at least 5 minutes
+	// for the install and post-install operations to take. Wait 5 minutes to 
+	// avoid hammering on getting VM status via PowerShell
+	time.Sleep(time.Second * 300);
+
+	var script powershell.ScriptBuilder
+	script.WriteLine("param([string]$vmName)")
+	script.WriteLine("(Get-VM -Name $vmName).State -eq [Microsoft.HyperV.PowerShell.VMState]::Off")
+	isOffScript := script.String()
+
+	for {
+		powershell := new(powershell.PowerShellCmd)
+		cmdOut, err := powershell.Output(isOffScript, vmName);
+		if err != nil {
+			err := fmt.Errorf("Error checking VM's state: %s", err)
+			state.Put("error", err)
+			ui.Error(err.Error())
+			return multistep.ActionHalt
+		}
+
+		if cmdOut == "True" {
+			break
+		} else {
+			time.Sleep(time.Second * SleepSeconds);
+		}
+	}
+
+	return multistep.ActionContinue
+}
+
+func (s *StepWaitForPowerOff) Cleanup(state multistep.StateBag) {
+}
 
 type StepWaitForInstallToComplete struct {
 	ExpectedRebootCount uint

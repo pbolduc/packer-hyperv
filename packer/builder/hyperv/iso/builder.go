@@ -29,6 +29,9 @@ const (
 	DefaultRamSize = 1024	// 1GB
 	MinRamSize = 512		// 512MB
 	MaxRamSize = 32768 		// 32GB
+
+	DefaultUsername = "vagrant"
+	DefaultPassword = "vagrant"
 )
 
 // Builder implements packer.Builder and builds the actual Hyperv
@@ -236,6 +239,7 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 			DiskSize: b.config.DiskSize,
 		},
 		new(hypervcommon.StepEnableIntegrationService),
+
 		&hypervcommon.StepMountDvdDrive{
 			RawSingleISOUrl: b.config.RawSingleISOUrl,
 		},
@@ -246,31 +250,34 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		//
 		//
 		//
-		new(hypervcommon.StepStartVm),
-		&hypervcommon.StepWaitForInstallToComplete{ 
-			ExpectedRebootCount: 2, 
-			ActionName: "Installing",
+		&hypervcommon.StepStartVm{
+			Reason: "OS installation",
 		},
 
-		// wait for the first post-install boot to complete
-		&hypervcommon.StepSleep{ 
-			Minutes: 5,
-		},
-
-		new(hypervcommon.StepConfigureIp),
-
-		&hypervcommon.StepSetRemoting{
-			Username: "vagrant",
-			Password: "vagrant",
-		},
-
-		&hypervcommon.StepCheckRemoting{},
-
-		&common.StepProvision{},
-		//new(StepSysprep),
+		// wait for the vm to be powered off
+		&hypervcommon.StepWaitForPowerOff{},
 
 		// remove the integration services dvd drive
-		new(hypervcommon.StepUnmountIntegrationServices),
+		&hypervcommon.StepUnmountSecondaryDvdImages{},
+
+		&hypervcommon.StepStartVm{
+			Reason: "provisioning",
+			StartUpDelay: 60,
+		},
+
+		// new(hypervcommon.StepConfigureIp),
+
+		// &hypervcommon.StepSetRemoting{
+		// 	Username: DefaultUsername,
+		// 	Password: DefaultPassword,
+		// },
+
+		// &hypervcommon.StepCheckRemoting{},
+
+		// provision requires communicator to be setup
+		//&common.StepProvision{},
+		
+		//new(StepSysprep),
 
 		new(hypervcommon.StepUnmountFloppyDrive),
 		new(hypervcommon.StepUnmountDvdDrive),
