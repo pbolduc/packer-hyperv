@@ -77,3 +77,5 @@ func (s *StepCheckRemoting) Run(state multistep.StateBag) multistep.StepAction {
 func (s *StepCheckRemoting) Cleanup(state multistep.StateBag) {
 	// do nothing
 }
+
+

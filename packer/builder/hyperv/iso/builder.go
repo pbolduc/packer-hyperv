@@ -84,16 +84,21 @@ type config struct {
 	// By default this is "packer-BUILDNAME", where "BUILDNAME" is the name of the build.
 	VMName              string              `mapstructure:"vm_name"`
 
-
-	SleepTimeMinutes 	time.Duration		`mapstructure:"wait_time_minutes"`
 	ProductKey 			string				`mapstructure:"product_key"`
 
 	common.PackerConfig           			`mapstructure:",squash"`
-	hypervcommon.OutputConfig     			`mapstructure:",squash"`
+	hypervcommon.OutputConfig               `mapstructure:",squash"`
+	hypervcommon.SSHConfig                  `mapstructure:",squash"`
 
 	SwitchName          string 				`mapstructure:"switch_name"`
 
-	tpl *packer.ConfigTemplate
+	// The time in seconds to wait for the virtual machine to report an IP address.
+	// This defaults to 120 seconds. This may have to be increased if your VM takes longer to boot.
+	IPAddressTimeout    time.Duration `mapstructure:"ip_address_timeout"`
+
+	SSHWaitTimeout      time.Duration
+
+	tpl                 *packer.ConfigTemplate
 }
 
 // Prepare processes the build configuration parameters.
@@ -116,6 +121,8 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	// Accumulate any errors and warnings
 	errs := common.CheckUnusedConfig(md)
 	errs = packer.MultiErrorAppend(errs, b.config.OutputConfig.Prepare(b.config.tpl, &b.config.PackerConfig)...)
+	errs = packer.MultiErrorAppend(errs, b.config.SSHConfig.Prepare(b.config.tpl)...)
+	
 	warnings := make([]string, 0)
 
 	err = b.checkDiskSize()
@@ -141,19 +148,6 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	if b.config.SwitchName == "" {
 		b.config.SwitchName = fmt.Sprintf("pis_%s", uuid.New())
 	}
-
-	if b.config.SleepTimeMinutes == 0 {
-		b.config.SleepTimeMinutes = 10
-	} else if b.config.SleepTimeMinutes < 0 {
-		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("wait_time_minutes: '%v' %s", int64(b.config.SleepTimeMinutes), "the value can't be negative" ))
-	} else if b.config.SleepTimeMinutes > 1440 {
-		errs = packer.MultiErrorAppend(errs,
-			fmt.Errorf("wait_time_minutes: '%v' %s", uint(b.config.SleepTimeMinutes), "the value is too big" ))
-	} else if b.config.SleepTimeMinutes > 120 {
-		warnings = appendWarnings( warnings, fmt.Sprintf("wait_time_minutes: '%v' %s", uint(b.config.SleepTimeMinutes), "You may want to decrease the value. Usually 20 min is enough."))
-	}
-	log.Println(fmt.Sprintf("%s: %v", "SleepTimeMinutes", uint(b.config.SleepTimeMinutes)))
 
 	// Errors
 	templates := map[string]*string{
@@ -196,6 +190,8 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	}
 
 	log.Println(fmt.Sprintf("%s: %v","RawSingleISOUrl", b.config.RawSingleISOUrl))
+
+	b.config.SSHWaitTimeout, err = time.ParseDuration(b.config.RawSSHWaitTimeout)
 
 	if errs != nil && len(errs.Errors) > 0 {
 		return warnings, errs
@@ -258,12 +254,17 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		&hypervcommon.StepWaitForPowerOff{},
 
 		// remove the integration services dvd drive
+		// after we power down
 		&hypervcommon.StepUnmountSecondaryDvdImages{},
 
+		//
 		&hypervcommon.StepStartVm{
 			Reason: "provisioning",
 			StartUpDelay: 60,
 		},
+
+		// configure the communicator ssh, winrm
+		b.getCommunicatorStep(b.config),
 
 		// new(hypervcommon.StepConfigureIp),
 
@@ -275,7 +276,7 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		// &hypervcommon.StepCheckRemoting{},
 
 		// provision requires communicator to be setup
-		//&common.StepProvision{},
+		&common.StepProvision{},
 		
 		//new(StepSysprep),
 
@@ -372,6 +373,25 @@ func (b *Builder) checkRamSize() error {
 }
 
 func (b *Builder) checkHostAvailableMemory() string {
+	freeMB := GetHostAvailableMemory()
+
+	if (freeMB - float64(b.config.RamSizeMB)) < 512 {
+		return fmt.Sprintf("Hyper-V might fail to create a VM if there is no available memory in the system.")
+	}
+
+	return ""
+}
+
+func (b *Builder) getCommunicatorStep(config config) multistep.Step {
+	return &common.StepConnectSSH{
+			SSHAddress:     hypervcommon.SSHAddress,
+			SSHConfig:      hypervcommon.SSHConfigFunc(b.config.SSHConfig),
+			SSHWaitTimeout:  config.SSHWaitTimeout,
+		}
+}
+
+
+func GetHostAvailableMemory() float64 {
 
 	var script powershell.ScriptBuilder
 	script.WriteLine("(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024")
@@ -381,9 +401,26 @@ func (b *Builder) checkHostAvailableMemory() string {
 
 	freeMB, _ := strconv.ParseFloat(output, 64)
 
-	if (freeMB - float64(b.config.RamSizeMB)) < 512 {
-		return fmt.Sprintf("Hyper-V might fail to create a VM if there is no available memory in the system.")
-	}
+	return freeMB
+}
 
-	return ""
+
+func GetVMNetworkAdapterAddress(vmName string) (string, error) {
+	var script powershell.ScriptBuilder
+	script.WriteLine("param([string]$vmName, [int]$addressIndex)")
+	script.WriteLine("try {")
+	script.WriteLine("  $adapter = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue")
+	script.WriteLine("  $ip = $adapter.IPAddresses[$addressIndex]")
+	script.WriteLine("  if($ip -eq $null) {")
+	script.WriteLine("    return $false")
+	script.WriteLine("  }")
+	script.WriteLine("} catch {")
+	script.WriteLine("  return $false")
+	script.WriteLine("}")
+	script.WriteLine("$ip")
+
+	powershell := new(powershell.PowerShellCmd)
+	cmdOut, err := powershell.Output(script.String(), vmName, "0");
+
+	return cmdOut, err;
 }
