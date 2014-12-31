@@ -6,10 +6,9 @@ package common
 
 import (
 	"fmt"
-	"strings"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 const (
@@ -47,18 +46,7 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say(fmt.Sprintf("Creating switch '%v' if required...", s.SwitchName))
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$switchName,[string]$switchType)")
-	script.WriteLine("$switches = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue")
-	script.WriteLine("if ($switches.Count -eq 0) {")
-	script.WriteLine("  New-VMSwitch -Name $switchName -SwitchType $switchType")
-	script.WriteLine("  return $true")
-	script.WriteLine("}")
-	script.WriteLine("return $false")
-
-	powershell := new(powershell.PowerShellCmd)
-	cmdOut, err := powershell.Output(script.String(), s.SwitchName, s.SwitchType)
-
+	createdSwitch, err := hyperv.CreateVirtualSwitch(s.SwitchName, s.SwitchType)
 	if err != nil {
 		err := fmt.Errorf("Error creating switch: %s", err)
 		state.Put("error", err)
@@ -67,7 +55,7 @@ func (s *StepCreateSwitch) Run(state multistep.StateBag) multistep.StepAction {
 		return multistep.ActionHalt
 	}
 
-	s.createdSwitch = strings.TrimSpace(string(cmdOut)) == "True"
+	s.createdSwitch = createdSwitch
 
 	if !s.createdSwitch {
 		ui.Say(fmt.Sprintf("    switch '%v' already exists. Will not delete on cleanup...", s.SwitchName))
@@ -86,16 +74,9 @@ func (s *StepCreateSwitch) Cleanup(state multistep.StateBag) {
 
 	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
-
 	ui.Say("Unregistering and deleting switch...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$switchName)")
-	script.WriteLine("Remove-VMSwitch $switchName -Force")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), s.SwitchName)
-
+	err := hyperv.DeleteVirtualSwitch(s.SwitchName)
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting switch: %s", err))
 	}

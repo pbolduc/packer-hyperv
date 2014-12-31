@@ -9,7 +9,7 @@ import (
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
 	"time"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 type StepRebootVm struct {
@@ -24,13 +24,7 @@ func (s *StepRebootVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Rebooting vm...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("Restart-VM $vmName -Force")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), vmName)
-
+	err := hyperv.RestartVirtualMachine(vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)

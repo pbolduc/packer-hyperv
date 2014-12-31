@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 type StepDisableVlan struct {
@@ -22,30 +22,10 @@ func (s *StepDisableVlan) Run(state multistep.StateBag) multistep.StepAction {
 	errorMsg := "Error disabling vlan: %s"
 	vmName := state.Get("vmName").(string)
 	switchName := state.Get("SwitchName").(string)
-	var err error
 
 	ui.Say("Disabling vlan...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("Set-VMNetworkAdapterVlan -VMName $vmName -Untagged")
-
-	powershell := new(powershell.PowerShellCmd)
-	err = powershell.Run(script.String(), vmName)
-
-	if err != nil {
-		err := fmt.Errorf(errorMsg, err)
-		state.Put("error", err)
-		ui.Error(err.Error())
-		return multistep.ActionHalt
-	}
-
-	script.Reset()
-	script.WriteLine("param([string]$switchName)")
-	script.WriteLine("Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $switchName -Untagged")
-
-	err = powershell.Run(script.String(), switchName)
-
+	err := hyperv.UntagVirtualMachineNetworkAdapterVlan(vmName, switchName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)

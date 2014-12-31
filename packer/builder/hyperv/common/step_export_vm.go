@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 const(
@@ -44,13 +44,7 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Exporting vm...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName, [string]$path)")
-	script.WriteLine("Export-VM -Name $vmName -Path $path")
-
-	powershell := new(powershell.PowerShellCmd)
-	err = powershell.Run(script.String(), vmName, vmExportPath)
-
+	err = hyperv.ExportVirtualMachine(vmName, vmExportPath)
 	if err != nil {
 		errorMsg = "Error exporting vm: %s"
 		err := fmt.Errorf(errorMsg, err)
@@ -63,14 +57,7 @@ func (s *StepExportVm) Run(state multistep.StateBag) multistep.StepAction {
 	expPath := filepath.Join(vmExportPath,vmName)
 
 	ui.Say("Coping to output dir...")
-
-	script.Reset()
-	script.WriteLine("param([string]$srcPath, [string]$dstPath, [string]$vhdDirName, [string]$vmDir)")
-	script.WriteLine("Copy-Item -Path $srcPath/$vhdDirName -Destination $dstPath -recurse")
-	script.WriteLine("Copy-Item -Path $srcPath/$vmDir -Destination $dstPath")
-	script.WriteLine("Copy-Item -Path $srcPath/$vmDir/*.xml -Destination $dstPath/$vmDir")
-
-	err = powershell.Run(script.String(), expPath, outputPath, vhdDir, vmDir)
+	err = hyperv.CopyExportedVirtualMachine(expPath, outputPath, vhdDir, vmDir)
 	if err != nil {
 		errorMsg = "Error exporting vm: %s"
 		err := fmt.Errorf(errorMsg, err)

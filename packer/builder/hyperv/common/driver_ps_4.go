@@ -107,22 +107,9 @@ func (d *HypervPS4Driver) verifyElevatedMode() error {
 
 	log.Printf("Enter method: %s", "verifyElevatedMode")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("$identity=[System.Security.Principal.WindowsIdentity]::GetCurrent();")
-	script.WriteLine("$principal=new-object System.Security.Principal.WindowsPrincipal($identity);")
-	script.WriteLine("$administratorRole=[System.Security.Principal.WindowsBuiltInRole]::Administrator;")
-	script.WriteLine("return $principal.IsInRole($administratorRole);")
+	isAdmin, _ := powershell.IsCurrentUserAnAdministrator()
 
-	powershell := new(powershell.PowerShellCmd)
-	cmdOut, err := powershell.Output(script.String());
-	if err != nil {
-		return err
-	}
-
-	res := strings.TrimSpace(string(cmdOut))
-	log.Printf("cmdOut: " + string(res))
-
-	if(res == "False"){
+	if !isAdmin{
 		err := fmt.Errorf("%s", "Please restart your shell in elevated mode")
 		return err
 	}

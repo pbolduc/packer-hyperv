@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 
@@ -30,13 +30,7 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Configuring vlan...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$networkAdapterName,[string]$vlanId)")
-	script.WriteLine("Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $networkAdapterName -Access -VlanId $vlanId")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), switchName, vlanId)
-
+	err := hyperv.SetNetworkAdapterVlanId(switchName, vlanId)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
@@ -44,12 +38,7 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 		return multistep.ActionHalt
 	}
 
-	script.Reset()
-	script.WriteLine("param([string]$vmName,[string]$vlanId)")
-	script.WriteLine("Set-VMNetworkAdapterVlan -VMName $vmName -Access -VlanId $vlanId")
-
-	err = powershell.Run(script.String(), vmName, vlanId)
-
+	err = hyperv.SetVirtualMachineVlanId(vmName, vlanId)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)

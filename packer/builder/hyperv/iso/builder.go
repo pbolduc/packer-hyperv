@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"time"
-	"strconv"
 	"github.com/mitchellh/multistep"
 	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
@@ -29,6 +28,8 @@ const (
 	DefaultRamSize = 1024	// 1GB
 	MinRamSize = 512		// 512MB
 	MaxRamSize = 32768 		// 32GB
+
+	LowRam = 512 // 512MB
 
 	DefaultUsername = "vagrant"
 	DefaultPassword = "vagrant"
@@ -92,9 +93,11 @@ type config struct {
 
 	SwitchName          string 				`mapstructure:"switch_name"`
 
+	Communicator        string              `mapstructure:"communicator"`
+
 	// The time in seconds to wait for the virtual machine to report an IP address.
 	// This defaults to 120 seconds. This may have to be increased if your VM takes longer to boot.
-	IPAddressTimeout    time.Duration `mapstructure:"ip_address_timeout"`
+	IPAddressTimeout    time.Duration       `mapstructure:"ip_address_timeout"`
 
 	SSHWaitTimeout      time.Duration
 
@@ -149,6 +152,15 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 		b.config.SwitchName = fmt.Sprintf("pis_%s", uuid.New())
 	}
 
+	if b.config.Communicator == "" {
+		b.config.Communicator = "ssh"
+	} else if b.config.Communicator == "ssh" || b.config.Communicator == "winrm" {
+		// good
+	} else {
+		err = fmt.Errorf("%s", "communicator must be either ssh or winrm")
+		errs = packer.MultiErrorAppend(errs, err)
+	}
+
 	// Errors
 	templates := map[string]*string{
 		"iso_url":            &b.config.RawSingleISOUrl,
@@ -181,6 +193,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	log.Println(fmt.Sprintf("%s: %v","VMName", b.config.VMName))
 	log.Println(fmt.Sprintf("%s: %v","SwitchName", b.config.SwitchName))
 	log.Println(fmt.Sprintf("%s: %v","ProductKey", b.config.ProductKey))
+	log.Println(fmt.Sprintf("%s: %v","Communicator", b.config.Communicator))
 
 
 	if b.config.RawSingleISOUrl == "" {
@@ -373,54 +386,29 @@ func (b *Builder) checkRamSize() error {
 }
 
 func (b *Builder) checkHostAvailableMemory() string {
-	freeMB := GetHostAvailableMemory()
+	freeMB := powershell.  GetHostAvailableMemory()
 
-	if (freeMB - float64(b.config.RamSizeMB)) < 512 {
-		return fmt.Sprintf("Hyper-V might fail to create a VM if there is no available memory in the system.")
+	if (freeMB - float64(b.config.RamSizeMB)) < LowRam {
+		return fmt.Sprintf("Hyper-V might fail to create a VM if there is not enough free memory in the system.")
 	}
 
 	return ""
 }
 
 func (b *Builder) getCommunicatorStep(config config) multistep.Step {
-	return &common.StepConnectSSH{
-			SSHAddress:     hypervcommon.SSHAddress,
-			SSHConfig:      hypervcommon.SSHConfigFunc(b.config.SSHConfig),
-			SSHWaitTimeout:  config.SSHWaitTimeout,
-		}
-}
 
-
-func GetHostAvailableMemory() float64 {
-
-	var script powershell.ScriptBuilder
-	script.WriteLine("(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024")
-
-	powershell := new(powershell.PowerShellCmd)
-	output, _ := powershell.Output(script.String())
-
-	freeMB, _ := strconv.ParseFloat(output, 64)
-
-	return freeMB
-}
-
-
-func GetVMNetworkAdapterAddress(vmName string) (string, error) {
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName, [int]$addressIndex)")
-	script.WriteLine("try {")
-	script.WriteLine("  $adapter = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue")
-	script.WriteLine("  $ip = $adapter.IPAddresses[$addressIndex]")
-	script.WriteLine("  if($ip -eq $null) {")
-	script.WriteLine("    return $false")
-	script.WriteLine("  }")
-	script.WriteLine("} catch {")
-	script.WriteLine("  return $false")
-	script.WriteLine("}")
-	script.WriteLine("$ip")
-
-	powershell := new(powershell.PowerShellCmd)
-	cmdOut, err := powershell.Output(script.String(), vmName, "0");
-
-	return cmdOut, err;
+	if b.config.Communicator == "ssh" {
+		return &common.StepConnectSSH{
+				SSHAddress:     hypervcommon.SSHAddress,
+				SSHConfig:      hypervcommon.SSHConfigFunc(b.config.SSHConfig),
+				SSHWaitTimeout:  config.SSHWaitTimeout,
+			}
+	} else {
+		// TODO: should be WinRM
+		return &common.StepConnectSSH{
+				SSHAddress:     hypervcommon.SSHAddress,
+				SSHConfig:      hypervcommon.SSHConfigFunc(b.config.SSHConfig),
+				SSHWaitTimeout:  config.SSHWaitTimeout,
+			}
+	}
 }

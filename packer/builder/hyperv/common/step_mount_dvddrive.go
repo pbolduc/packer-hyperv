@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 
@@ -27,13 +27,7 @@ func (s *StepMountDvdDrive) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Mounting dvd drive...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName,[string]$path)")
-	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $path")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), vmName, isoPath)
-
+	err := hyperv.MountDvdDrive(vmName, isoPath)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
@@ -54,20 +48,11 @@ func (s *StepMountDvdDrive) Cleanup(state multistep.StateBag) {
 	errorMsg := "Error unmounting dvd drive: %s"
 
 	vmName := state.Get("vmName").(string)
-	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
 
 	ui.Say("Unmounting dvd drive...")
 
-	var err error = nil
-
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $null")
-
-	powershell := new(powershell.PowerShellCmd)
-	err = powershell.Run(script.String(), vmName)
-
+	err := hyperv.UnmountDvdDrive(vmName)
 	if err != nil {
 		ui.Error(fmt.Sprintf(errorMsg, err))
 	}

@@ -13,6 +13,12 @@ import (
 	"strings"
 	"bytes"
 	"io/ioutil"
+	"strconv"
+)
+
+const (
+	powerShellFalse = "False"
+	powerShellTrue = "True"
 )
 
 type PowerShellCmd struct {
@@ -138,4 +144,82 @@ func createArgs(filename string, params ...string) []string {
 	}	
 
 	return args;
+}
+
+func GetHostAvailableMemory() float64 {
+
+	var script = "(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024"
+
+	var powershellCmd PowerShellCmd
+	output, _ := powershellCmd.Output(script)
+
+	freeMB, _ := strconv.ParseFloat(output, 64)
+
+	return freeMB
+}
+
+
+func GetHostName(ip string) (string, error) {
+
+	var script = `
+param([string]$ip)
+try {
+  $HostName = [System.Net.Dns]::GetHostEntry($ip).HostName
+  if ($HostName -ne $null) {
+    $HostName = $HostName.Split('.')[0]
+  }
+  $HostName
+} catch { }
+`
+
+	//
+	var powershellCmd PowerShellCmd
+
+	cmdOut, err := powershellCmd.Output(script, ip);
+	if err != nil {
+		return "", err
+	}
+
+	return cmdOut, nil
+}
+
+func IsCurrentUserAnAdministrator() (bool, error) {
+	var script = `
+$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = new-object System.Security.Principal.WindowsPrincipal($identity)
+$administratorRole = [System.Security.Principal.WindowsBuiltInRole]::Administrator
+return $principal.IsInRole($administratorRole)
+`
+
+	powershell := new(PowerShellCmd)
+	cmdOut, err := powershell.Output(script);
+	if err != nil {
+		return false, err
+	}
+
+	res := strings.TrimSpace(cmdOut)
+	return res == powerShellTrue, nil
+}
+
+
+func ModuleExists(moduleName string) (bool, error) {
+
+	var script = `
+param([string]$moduleName)
+(Get-Module -Name $moduleName) -ne $null
+`
+	powershell  := new(PowerShellCmd)
+	cmdOut, err := powershell.Output(script)
+	if err != nil {
+		return false, err
+	}
+
+	res := strings.TrimSpace(string(cmdOut))
+
+	if(res == powerShellFalse){
+		err := fmt.Errorf("PowerShell %s module is not loaded. Make sure %s feature is on.", moduleName, moduleName)
+		return false, err
+	}
+
+	return true, nil
 }

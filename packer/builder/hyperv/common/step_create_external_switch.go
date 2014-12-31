@@ -8,9 +8,8 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	"strings"
 	"code.google.com/p/go-uuid/uuid"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 // This step creates switch for VM.
@@ -34,15 +33,7 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 
 	packerExternalSwitchName := "paes_" + uuid.New()
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName,[string]$switchName)")
-	script.WriteLine("$switch=$null")
-	script.WriteLine("$names=@('ethernet','wi-fi','foo')")
-	script.WriteLine("$adapters=foreach($name in $names){Get-NetAdapter -physical -Name $name -ErrorAction SilentlyContinue | where status -eq 'up' }foreach($adapter in $adapters){$switch=Get-VMSwitch –SwitchType External | where {$_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription};if($switch -eq $null){$switch=New-VMSwitch -Name $switchName -NetAdapterName $adapter.Name -AllowManagementOS $true -Notes 'Parent OS, VMs, WiFi'};if($switch -ne $null){break}};if($switch -ne $null){Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter -VMSwitch $switch } else{ Write-Error 'No internet adapters found'}")
-
-	powershell := new(powershell.PowerShellCmd)
-	err = powershell.Run(script.String(), vmName, packerExternalSwitchName)
-
+	err = hyperv.CreateExternalVirtualSwitch(vmName, packerExternalSwitchName)
 	if err != nil {
 		err := fmt.Errorf("Error creating switch: %s", err)
 		state.Put(errorMsg, err)
@@ -50,21 +41,14 @@ func (s *StepCreateExternalSwitch) Run(state multistep.StateBag) multistep.StepA
 		s.SwitchName = "";
 		return multistep.ActionHalt
 	}
-
-	script.Reset()
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("(Get-VMNetworkAdapter -VMName $vmName).SwitchName")
-
 	
-	cmdOut, err := powershell.Output(script.String(), vmName)
+	switchName, err := hyperv.GetVirtualMachineSwitchName(vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
 		ui.Error(err.Error())
 		return multistep.ActionHalt
 	}
-
-	switchName := strings.TrimSpace(string(cmdOut))
 
 	if len(switchName) == 0 {
 		err := fmt.Errorf(errorMsg, err)
@@ -108,13 +92,7 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 		return
 	}
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName,[string]$switchName)")
-	script.WriteLine("Get-VMNetworkAdapter –VMName $vmName | Connect-VMNetworkAdapter –SwitchName $switchName")
-
-	powershell := new(powershell.PowerShellCmd)
-	err = powershell.Run(script.String(), vmName, s.oldSwitchName)
-
+	err = hyperv.ConnectVirtualMachineNetworkAdapterToSwitch(vmName, s.oldSwitchName)
 	if err != nil {
 		ui.Error(fmt.Sprintf(errMsg, err))
 		return
@@ -122,12 +100,7 @@ func (s *StepCreateExternalSwitch) Cleanup(state multistep.StateBag) {
 
 	state.Put("SwitchName", s.oldSwitchName)
 
-	script.Reset()
-	script.WriteLine("param([string]$switchName)")
-	script.WriteLine("$TestSwitch = Get-VMSwitch -Name $switchName -ErrorAction SilentlyContinue;if($TestSwitch -ne $null){Remove-VMSwitch $sn -Force}")
-
-	err = powershell.Run(script.String(), s.SwitchName)
-
+	err = hyperv.DeleteVirtualSwitch(s.SwitchName)
 	if err != nil {
 		ui.Error(fmt.Sprintf(errMsg, err))
 	}

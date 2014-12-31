@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 type StepEnableIntegrationService struct {
@@ -22,12 +22,7 @@ func (s *StepEnableIntegrationService) Run(state multistep.StateBag) multistep.S
 	vmName := state.Get("vmName").(string)
 	s.name = "Guest Service Interface"
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName, [string]$integrationServiceName)")
-	script.WriteLine("Enable-VMIntegrationService -VMName $vmName -Name $integrationServiceName")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), vmName, s.name)
+	err := hyperv.EnableVirtualMachineIntegrationService(vmName, s.name)
 
 	if err != nil {
 		err := fmt.Errorf("Error enabling Integration Service: %s", err)

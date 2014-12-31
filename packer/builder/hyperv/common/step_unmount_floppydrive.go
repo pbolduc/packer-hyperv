@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 
@@ -24,13 +24,7 @@ func (s *StepUnmountFloppyDrive) Run(state multistep.StateBag) multistep.StepAct
 
 	ui.Say("Unmounting floppy drive (Run)...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("Set-VMFloppyDiskDrive -VMName $vmName -Path $null")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), vmName)
-
+	err := hyperv.UnmountFloppyDrive(vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)

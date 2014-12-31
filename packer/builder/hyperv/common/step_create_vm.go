@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 // This step creates the actual virtual machine.
@@ -37,14 +37,7 @@ func (s *StepCreateVM) Run(state multistep.StateBag) multistep.StepAction {
 	diskSize := strconv.FormatInt(diskSizeBytes, 10)
 	switchName := s.SwitchName
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName, [string]$path, [long]$memoryStartupBytes, [long]$newVHDSizeBytes, [string]$switchName)")
-	script.WriteLine("$vhdx = $vmName + '.vhdx'")
-	script.WriteLine("$vhdPath = Join-Path -Path $path -ChildPath $vhdx")
-	script.WriteLine("New-VM -Name $vmName -Path $path -MemoryStartupBytes $memoryStartupBytes -NewVHDPath $vhdPath -NewVHDSizeBytes $newVHDSizeBytes -SwitchName $switchName")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), s.VMName, path, ram, diskSize, switchName)
+	err := hyperv.CreateVirtualMachine(s.VMName, path, ram, diskSize, switchName)
 	if err != nil {
 		err := fmt.Errorf("Error creating virtual machine: %s", err)
 		state.Put("error", err)
@@ -65,18 +58,9 @@ func (s *StepCreateVM) Cleanup(state multistep.StateBag) {
 
 	//driver := state.Get("driver").(Driver)
 	ui := state.Get("ui").(packer.Ui)
-
 	ui.Say("Unregistering and deleting virtual machine...")
 
-	var err error = nil
-
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("Remove-VM -Name $vmName -Force")
-
-	powershell := new(powershell.PowerShellCmd)
-	err = powershell.Run(script.String(), s.VMName)
-
+	err := hyperv.DeleteVirtualMachine(s.VMName)
 	if err != nil {
 		ui.Error(fmt.Sprintf("Error deleting virtual machine: %s", err))
 	}

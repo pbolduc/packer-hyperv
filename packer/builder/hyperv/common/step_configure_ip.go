@@ -12,6 +12,7 @@ import (
 	"time"
 	"log"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 
@@ -27,27 +28,13 @@ func (s *StepConfigureIp) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Configuring ip address...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("try {")
-	script.WriteLine("  $adapter = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue")
-	script.WriteLine("  $ip = $adapter.IPAddresses[0]")
-	script.WriteLine("  if($ip -eq $null) {")
-	script.WriteLine("    return $false")
-	script.WriteLine("  }")
-	script.WriteLine("} catch {")
-	script.WriteLine("  return $false")
-	script.WriteLine("}")
-	script.WriteLine("$ip")
-
 	count := 60
 	var duration time.Duration = 1
 	sleepTime := time.Minute * duration
 	var ip string
 
 	for count != 0 {
-		powershell := new(powershell.PowerShellCmd)
-		cmdOut, err := powershell.Output(script.String(), vmName);
+		cmdOut, err := hyperv.GetVirtualMachineNetworkAdapterAddress(vmName)
 		if err != nil {
 			err := fmt.Errorf(errorMsg, err)
 			state.Put("error", err)
@@ -75,7 +62,7 @@ func (s *StepConfigureIp) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("ip address is " + ip)
 
-	hostName, err := s.getHostName(ip);
+	hostName, err := powershell.GetHostName(ip);
 	if err != nil {
 		state.Put("error", err)
 		ui.Error(err.Error())
@@ -94,26 +81,3 @@ func (s *StepConfigureIp) Cleanup(state multistep.StateBag) {
 	// do nothing
 }
 
-
-func (s *StepConfigureIp) getHostName(ip string) (string, error) {
-
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$ip)")
-	script.WriteLine("try {")
-	script.WriteLine("  $HostName = [System.Net.Dns]::GetHostEntry($ip).HostName")
-	script.WriteLine("  if ($HostName -ne $null) {")
-	script.WriteLine("    $HostName = $HostName.Split('.')[0]")
-	script.WriteLine("  }")
-	script.WriteLine("  $HostName")
-	script.WriteLine("} catch { }")
-
-	//
-	powershell := new(powershell.PowerShellCmd)
-
-	cmdOut, err := powershell.Output(script.String(), ip);
-	if err != nil {
-		return "", err
-	}
-
-	return cmdOut, nil
-}

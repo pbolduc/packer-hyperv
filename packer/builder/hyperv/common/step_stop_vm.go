@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 type StepStopVm struct {
@@ -22,15 +22,7 @@ func (s *StepStopVm) Run(state multistep.StateBag) multistep.StepAction {
 
 	ui.Say("Stopping vm...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("$vm = Get-VM -Name $vmName")
-	script.WriteLine("if ($vm.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running) {")
-	script.WriteLine("    Stop-VM -VM $vm")
-	script.WriteLine("}")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), vmName)
+	err := hyperv.StopVirtualMachine(vmName)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)

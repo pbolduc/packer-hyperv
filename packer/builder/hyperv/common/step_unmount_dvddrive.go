@@ -8,12 +8,11 @@ import (
 	"fmt"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 
 type StepUnmountDvdDrive struct {
-	path string
 }
 
 func (s *StepUnmountDvdDrive) Run(state multistep.StateBag) multistep.StepAction {
@@ -24,21 +23,13 @@ func (s *StepUnmountDvdDrive) Run(state multistep.StateBag) multistep.StepAction
 	
 	ui.Say("Unmounting dvd drive...")
 
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName)")
-	script.WriteLine("Set-VMDvdDrive -VMName $vmName -Path $null")
-
-	powershell := new(powershell.PowerShellCmd)
-	err := powershell.Run(script.String(), vmName)
-
+	err := hyperv.UnmountDvdDrive(vmName)
 	if err != nil {
 		err := fmt.Errorf("Error unmounting dvd drive: %s", err)
 		state.Put("error", err)
 		ui.Error(err.Error())
 		return multistep.ActionHalt
 	}
-
-	s.path = ""
 
 	return multistep.ActionContinue
 }

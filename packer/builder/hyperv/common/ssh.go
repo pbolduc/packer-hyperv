@@ -11,7 +11,7 @@ import (
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/communicator/ssh"
 	"github.com/mitchellh/packer/packer"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 func SSHAddress(state multistep.StateBag) (string, error) {
@@ -59,7 +59,7 @@ func getVMAddress(state multistep.StateBag) (string, error) {
 
 	for count != 0 {
 
-		address, err := GetVMNetworkAdapterAddress(vmName)
+		address, err := hyperv.GetVirtualMachineNetworkAdapterAddress(vmName)
 		if err != nil {
 			err := fmt.Errorf(errorMsg, err)
 			state.Put("error", err)
@@ -90,25 +90,4 @@ func getVMAddress(state multistep.StateBag) (string, error) {
 
 	return ip, nil
 
-}
-
-
-func GetVMNetworkAdapterAddress(vmName string) (string, error) {
-	var script powershell.ScriptBuilder
-	script.WriteLine("param([string]$vmName, [int]$addressIndex)")
-	script.WriteLine("try {")
-	script.WriteLine("  $adapter = Get-VMNetworkAdapter -VMName $vmName -ErrorAction SilentlyContinue")
-	script.WriteLine("  $ip = $adapter.IPAddresses[$addressIndex]")
-	script.WriteLine("  if($ip -eq $null) {")
-	script.WriteLine("    return $false")
-	script.WriteLine("  }")
-	script.WriteLine("} catch {")
-	script.WriteLine("  return $false")
-	script.WriteLine("}")
-	script.WriteLine("$ip")
-
-	powershell := new(powershell.PowerShellCmd)
-	cmdOut, err := powershell.Output(script.String(), vmName, "0");
-
-	return cmdOut, err;
 }
