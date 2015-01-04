@@ -45,6 +45,20 @@ Additionally, as indicated above, if you obtain a windows license, you can speci
 
 Note: The plugin has to be run on a Windows workstation 8.1 or higher and must have hyper-v enabled. 
 
-
 Additional Examples can be found on my fork of [Box Cutter Windows VM](https://github.com/pbolduc/windows-vm) repository.
 
+# Configuration Reference
+
+## Required:
+
+* **vm_name** (string) - The name of the virtual machine
+* **type** (string) - Must be *hyperv-iso*
+* **iso_url** (string) - A URL to the ISO containing the installation image. This URL can be either an HTTP URL or a file URL (or path to a file). If this is an HTTP URL, Packer will download it and cache it between runs
+
+## Optional:
+
+* **switch_name** (string) - 
+* **floppy_files** (array of strings) - A list of files to place onto a floppy disk that is attached when the VM is booted. This is most useful for unattended Windows installs, which look for an **Autounattend.xml** file on removable media. By default, no floppy will be attached. All files listed in this setting get placed into the root directory of the floppy and the floppy is attached as the first floppy device. Currently, no support exists for creating sub-directories on the floppy. Wildcard characters (*, ?, and []) are allowed. Directory names are also allowed, which will add all the files found in the directory to the floppy.
+* **ssh_username** (string) - The username to use to SSH into the machine once the OS is installed.
+* **ssh_password** (string) - The password to use to SSH into the machine once the OS is installed.
+* **ssh_wait_timeout** (string) - 
