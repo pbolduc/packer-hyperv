@@ -22,7 +22,7 @@ The bin folder has an example JSON to help specify the new hyperv configuration.
             "ssh_username": "vagrant",
             "ssh_password": "vagrant",
             "ssh_wait_timeout": "10000s",
-            "switch_name": "Virtual WLAN",
+            "switch_name": "",
             "floppy_files": [
                 "floppy/win2012r2-standard/Autounattend.xml",
                 "floppy/00-run-all-scripts.cmd",
@@ -60,7 +60,7 @@ Examples can be found on my fork of [Box Cutter Windows VM](https://github.com/p
 
 ## Optional:
 
-* **switch_name** (string) - The Hyper-V virtual switch name to bind to the virtual machine.  See [issue 13](https://github.com/pbolduc/packer-hyperv/issues/13) for an planned enhacement to automatically detect an external virtual switch bound to an online network adapter.
+* **switch_name** (string) - The Hyper-V virtual switch name to bind to the virtual machine.  If not specified, the external virtual switch connected fastest (based on link speed) network adapter is used. If no virtual switch can be detected, a temporary internal switch will be created.
 * **floppy_files** (array of strings) - A list of files to place onto a floppy disk that is attached when the VM is booted. This is most useful for unattended Windows installs, which look for an **Autounattend.xml** file on removable media. By default, no floppy will be attached. All files listed in this setting get placed into the root directory of the floppy and the floppy is attached as the first floppy device. Currently, no support exists for creating sub-directories on the floppy. Wildcard characters (*, ?, and []) are allowed. Directory names are also allowed, which will add all the files found in the directory to the floppy.
 * **ssh_username** (string) - The username to use to SSH into the machine once the OS is installed.
 * **ssh_password** (string) - The password to use to SSH into the machine once the OS is installed.
