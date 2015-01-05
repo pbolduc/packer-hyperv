@@ -150,8 +150,8 @@ func GetHostAvailableMemory() float64 {
 
 	var script = "(Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1024"
 
-	var powershellCmd PowerShellCmd
-	output, _ := powershellCmd.Output(script)
+	var ps PowerShellCmd
+	output, _ := ps.Output(script)
 
 	freeMB, _ := strconv.ParseFloat(output, 64)
 
@@ -173,9 +173,8 @@ try {
 `
 
 	//
-	var powershellCmd PowerShellCmd
-
-	cmdOut, err := powershellCmd.Output(script, ip);
+	var ps PowerShellCmd
+	cmdOut, err := ps.Output(script, ip);
 	if err != nil {
 		return "", err
 	}
@@ -191,8 +190,8 @@ $administratorRole = [System.Security.Principal.WindowsBuiltInRole]::Administrat
 return $principal.IsInRole($administratorRole)
 `
 
-	powershell := new(PowerShellCmd)
-	cmdOut, err := powershell.Output(script);
+    var ps PowerShellCmd
+	cmdOut, err := ps.Output(script);
 	if err != nil {
 		return false, err
 	}
@@ -208,8 +207,8 @@ func ModuleExists(moduleName string) (bool, error) {
 param([string]$moduleName)
 (Get-Module -Name $moduleName) -ne $null
 `
-	powershell  := new(PowerShellCmd)
-	cmdOut, err := powershell.Output(script)
+    var ps PowerShellCmd
+	cmdOut, err := ps.Output(script)
 	if err != nil {
 		return false, err
 	}
@@ -222,4 +221,28 @@ param([string]$moduleName)
 	}
 
 	return true, nil
+}
+
+func SetUnattendedProductKey(path string, productKey string) error {
+
+	var script = `
+param([string]$path,[string]$productKey)
+
+$unattend = [xml](Get-Content -Path $path)
+$ns = @{ un = 'urn:schemas-microsoft-com:unattend' }
+
+$setupNode = $unattend | 
+  Select-Xml -XPath '//un:settings[@pass = "specialize"]/un:component[@name = "Microsoft-Windows-Shell-Setup"]' -Namespace $ns |
+  Select-Object -ExpandProperty Node
+
+$productKeyNode = $unattend.CreateElement('ProductKey', $ns.un)
+$productKeyNode.InnerText = $productKey
+[Void]$setupNode.AppendChild($productKeyNode)
+
+$unattend.Save($path)
+`
+
+  var ps PowerShellCmd
+  err := ps.Run(script, path, productKey)
+  return err
 }
