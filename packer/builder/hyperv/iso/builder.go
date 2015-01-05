@@ -13,6 +13,7 @@ import (
 	"github.com/mitchellh/multistep"
 	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 	"github.com/mitchellh/packer/common"
 	"github.com/mitchellh/packer/packer"
 	"regexp"
@@ -149,15 +150,23 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	}
 
 	if b.config.SwitchName == "" {
-		b.config.SwitchName = fmt.Sprintf("pis_%s", uuid.New())
+		// no switch name, try to get one attached to a online network adapter
+		onlineSwitchName, err := hyperv.GetExternalOnlineVirtualSwitch()
+		if onlineSwitchName == "" || err != nil{
+			b.config.SwitchName = fmt.Sprintf("pis_%s", uuid.New())
+		} else {
+			b.config.SwitchName = onlineSwitchName
+		}
 	}
+
+	log.Println(fmt.Sprintf("Using switch %s", b.config.SwitchName))
 
 	if b.config.Communicator == "" {
 		b.config.Communicator = "ssh"
 	} else if b.config.Communicator == "ssh" || b.config.Communicator == "winrm" {
 		// good
 	} else {
-		err = fmt.Errorf("%s", "communicator must be either ssh or winrm")
+		err = errors.New("communicator must be either ssh or winrm")
 		errs = packer.MultiErrorAppend(errs, err)
 	}
 
@@ -183,8 +192,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 		match, _ := regexp.MatchString(pattern, value)
 		if !match {
-			errs = packer.MultiErrorAppend(errs,
-				fmt.Errorf("product_key: Make sure the product_key follows the pattern: XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"))
+			errs = packer.MultiErrorAppend(errs, errors.New("product_key: Make sure the product_key follows the pattern: XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"))
 		}
 
 		warnings = appendWarnings( warnings, fmt.Sprintf("product_key: %s", "value is not empty. Packer will try to activate Windows with the product key. To do this Packer will need an Internet connection."))
@@ -198,8 +206,8 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 	if b.config.RawSingleISOUrl == "" {
 		errs = packer.MultiErrorAppend(errs, errors.New("iso_url: The option can't be missed and a path must be specified."))
-	}else if _, err := os.Stat(b.config.RawSingleISOUrl); err != nil {
-		errs = packer.MultiErrorAppend(errs, fmt.Errorf("iso_url: Check the path is correct"))
+	} else if _, err := os.Stat(b.config.RawSingleISOUrl); err != nil {
+		errs = packer.MultiErrorAppend(errs, errors.New("iso_url: Check the path is correct"))
 	}
 
 	log.Println(fmt.Sprintf("%s: %v","RawSingleISOUrl", b.config.RawSingleISOUrl))

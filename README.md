@@ -41,11 +41,14 @@ The bin folder has an example JSON to help specify the new hyperv configuration.
         }
     ]
 
+Current version of the hyper-v builder **requires that the VM be shutdown after the install/build phase is complete**.  The *zzzz-shutdown.bat* script in the example above does this.  When the virtual machine is started, the communicator must be available for provisioning stage. 
+
 ~~Additionally, as indicated above, if you obtain a windows license, you can specify the product key within your .json configuration and the plugin will register your copy of windows.~~
 
 Note: The plugin has to be run on a Windows workstation 8.1 or higher and must have hyper-v enabled. 
 
-Additional Examples can be found on my fork of [Box Cutter Windows VM](https://github.com/pbolduc/windows-vm) repository.
+Examples can be found on my fork of [Box Cutter Windows VM](https://github.com/pbolduc/windows-vm) repository.
+
 
 # Configuration Reference
 
@@ -62,3 +65,4 @@ Additional Examples can be found on my fork of [Box Cutter Windows VM](https://g
 * **ssh_username** (string) - The username to use to SSH into the machine once the OS is installed.
 * **ssh_password** (string) - The password to use to SSH into the machine once the OS is installed.
 * **ssh_wait_timeout** (string) - How long to wait for SSH to be available.
+* **communicator** (string) - Can be either **ssh** or **winrm**.  Default is ssh.  winrm 

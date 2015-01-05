@@ -241,6 +241,30 @@ Set-VMNetworkAdapterVlan -VMName $vmName -Access -VlanId $vlanId
 }
 
 
+func GetExternalOnlineVirtualSwitch() (string, error) {
+
+  var script = `
+$adapters = Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Sort-Object -Descending -Property Speed
+foreach ($adapter in $adapters) { 
+  $switch = Get-VMSwitch -SwitchType External | Where-Object { $_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription }
+
+  if ($switch -ne $null) {
+    $switch.Name
+    break
+  }
+}
+`
+
+  var ps powershell.PowerShellCmd
+  cmdOut, err := ps.Output(script)
+  if err != nil {
+    return "", err
+  }
+
+  var switchName = strings.TrimSpace(cmdOut)
+  return switchName, nil
+}
+
 
 func CreateExternalVirtualSwitch(vmName string, switchName string) error {
 
@@ -253,7 +277,7 @@ $adapters = foreach ($name in $names) {
 }
 
 foreach ($adapter in $adapters) { 
-  $switch = Get-VMSwitch –SwitchType External | where { $_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription }
+  $switch = Get-VMSwitch -SwitchType External | where { $_.NetAdapterInterfaceDescription -eq $adapter.InterfaceDescription }
 
   if ($switch -eq $null) { 
     $switch = New-VMSwitch -Name $switchName -NetAdapterName $adapter.Name -AllowManagementOS $true -Notes 'Parent OS, VMs, WiFi'
