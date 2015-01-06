@@ -7,8 +7,10 @@ package common
 import (
 	"fmt"
 	"os"
+	"strings"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell"
 	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 	"log"
 	"io"
@@ -20,6 +22,78 @@ import (
 const(
 	FloppyFileName = "assets.vfd"
 )
+
+type StepSetUnattendedProductKey struct {
+	Files []string
+	ProductKey string
+}
+
+func (s *StepSetUnattendedProductKey) Run(state multistep.StateBag) multistep.StepAction {
+	ui := state.Get("ui").(packer.Ui)
+
+	if s.ProductKey == "" {
+		ui.Say("No product key specified...")
+		return multistep.ActionContinue 
+	}
+
+	index := -1
+	for i, value := range s.Files {
+    	if s.caseInsensitiveContains(value, "Autounattend.xml") {
+    		index = i
+    		break
+    	}
+	}
+
+	ui.Say("Setting product key in Autounattend.xml...")
+	copyOfAutounattend, err := s.copyAutounattend(s.Files[index])
+	if err != nil {
+		state.Put("error", fmt.Errorf("Error copying Autounattend.xml: %s", err))
+		return multistep.ActionHalt
+	}
+
+	powershell.SetUnattendedProductKey(copyOfAutounattend, s.ProductKey)
+	s.Files[index] = copyOfAutounattend
+	return multistep.ActionContinue
+}
+
+
+func (s *StepSetUnattendedProductKey) caseInsensitiveContains(str, substr string) bool {
+    str, substr = strings.ToUpper(str), strings.ToUpper(substr)
+    return strings.Contains(str, substr)
+}
+
+func (s *StepSetUnattendedProductKey) copyAutounattend(path string) (string, error) {
+	tempdir, err := ioutil.TempDir("", "packer")
+	if err != nil {
+		return "", err
+	}
+
+	autounattend := filepath.Join(tempdir, "Autounattend.xml")
+	f, err := os.Create(autounattend)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	sourceF, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer sourceF.Close()
+
+	log.Printf("Copying %s to temp location: %s", path, autounattend)
+	if _, err := io.Copy(f, sourceF); err != nil {
+		return "", err
+	}
+
+	return autounattend, nil
+}
+
+
+func (s *StepSetUnattendedProductKey) Cleanup(state multistep.StateBag) {
+}
+
+
 
 type StepMountFloppydrive struct {
 	floppyPath string

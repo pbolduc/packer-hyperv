@@ -235,9 +235,16 @@ $setupNode = $unattend |
   Select-Xml -XPath '//un:settings[@pass = "specialize"]/un:component[@name = "Microsoft-Windows-Shell-Setup"]' -Namespace $ns |
   Select-Object -ExpandProperty Node
 
-$productKeyNode = $unattend.CreateElement('ProductKey', $ns.un)
+$productKeyNode = $setupNode |
+  Select-Xml -XPath '//un:ProductKey' -Namespace $ns |
+  Select-Object -ExpandProperty Node
+
+if ($productKeyNode -eq $null) {
+    $productKeyNode = $unattend.CreateElement('ProductKey', $ns.un)
+    [Void]$setupNode.AppendChild($productKeyNode)
+}
+
 $productKeyNode.InnerText = $productKey
-[Void]$setupNode.AppendChild($productKeyNode)
 
 $unattend.Save($path)
 `

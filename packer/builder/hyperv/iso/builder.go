@@ -194,8 +194,6 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 		if !match {
 			errs = packer.MultiErrorAppend(errs, errors.New("product_key: Make sure the product_key follows the pattern: XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"))
 		}
-
-		warnings = appendWarnings( warnings, fmt.Sprintf("product_key: %s", "value is not empty. Packer will try to activate Windows with the product key. To do this Packer will need an Internet connection."))
 	}
 
 	log.Println(fmt.Sprintf("%s: %v","VMName", b.config.VMName))
@@ -242,6 +240,10 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		&hypervcommon.StepOutputDir{
 			Force: b.config.PackerForce,
 			Path:  b.config.OutputDir,
+		},
+		&hypervcommon.StepSetUnattendedProductKey{
+			Files: b.config.FloppyFiles,
+			ProductKey: b.config.ProductKey,
 		},
 		&common.StepCreateFloppy{
 			Files: b.config.FloppyFiles,
