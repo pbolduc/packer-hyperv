@@ -236,7 +236,7 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 	state.Put("ui", ui)
 
 	steps := []multistep.Step{
-		new(hypervcommon.StepCreateTempDir),
+		&hypervcommon.StepCreateTempDir{},
 		&hypervcommon.StepOutputDir{
 			Force: b.config.PackerForce,
 			Path:  b.config.OutputDir,
@@ -257,12 +257,12 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 			RamSizeMB: b.config.RamSizeMB,
 			DiskSize: b.config.DiskSize,
 		},
-		new(hypervcommon.StepEnableIntegrationService),
+		&hypervcommon.StepEnableIntegrationService{},
 
 		&hypervcommon.StepMountDvdDrive{
 			RawSingleISOUrl: b.config.RawSingleISOUrl,
 		},
-		new(hypervcommon.StepMountFloppydrive),
+		&hypervcommon.StepMountFloppydrive{},
 
 		&hypervcommon.StepMountSecondaryDvdImages{},
 
@@ -303,9 +303,9 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 		
 		//new(StepSysprep),
 
-		new(hypervcommon.StepUnmountFloppyDrive),
-		new(hypervcommon.StepUnmountDvdDrive),
-		new(hypervcommon.StepStopVm),
+		&hypervcommon.StepUnmountFloppyDrive{},
+		&hypervcommon.StepUnmountDvdDrive{},
+		&hypervcommon.StepStopVm{},
 		&hypervcommon.StepExportVm{
 			OutputDir: b.config.OutputDir,
 		},

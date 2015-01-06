@@ -23,6 +23,7 @@ The bin folder has an example JSON to help specify the new hyperv configuration.
             "ssh_password": "vagrant",
             "ssh_wait_timeout": "10000s",
             "switch_name": "",
+            "product_key": "xxxxx-xxxxx-xxxxx-xxxxx-xxxxx",
             "floppy_files": [
                 "floppy/win2012r2-standard/Autounattend.xml",
                 "floppy/00-run-all-scripts.cmd",
@@ -65,4 +66,5 @@ Examples can be found on my fork of [Box Cutter Windows VM](https://github.com/p
 * **ssh_username** (string) - The username to use to SSH into the machine once the OS is installed.
 * **ssh_password** (string) - The password to use to SSH into the machine once the OS is installed.
 * **ssh_wait_timeout** (string) - How long to wait for SSH to be available.
-* **communicator** (string) - Can be either **ssh** or **winrm**.  Default is ssh.  winrm 
+* **communicator** (string) - Can be either **ssh** or **winrm**.  Default is ssh.  winrm **not** currently implemented.
+* **product_key** (string) - Windows product key to set.  Your floppy_files must contain a Autounattend.xml entry.
