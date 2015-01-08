@@ -23,6 +23,9 @@ const(
 	FloppyFileName = "assets.vfd"
 )
 
+
+
+
 type StepSetUnattendedProductKey struct {
 	Files []string
 	ProductKey string

@@ -11,10 +11,18 @@ package common
 // versions out of the builder steps, so sometimes the methods are
 // extremely specific.
 type Driver interface {
+
+	// Checks if the VM named is running.
+	IsRunning(string) (bool, error)
+
+	// Start starts a VM specified by the name given.
+	Start(string) error
+
+	// Stop stops a VM specified by the name given.
+	Stop(string) error
+
 	// Verify checks to make sure that this driver should function
 	// properly. If there is any indication the driver can't function,
 	// this will return an error.
-	Verify() error
+	Verify() error	
 }
-
-

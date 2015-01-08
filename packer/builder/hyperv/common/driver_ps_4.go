@@ -10,7 +10,8 @@ import (
 	"strings"
 	"runtime"
 	"strconv"
-	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
 type HypervPS4Driver struct {
@@ -34,6 +35,22 @@ func NewHypervPS4Driver() (Driver, error) {
 	return ps4Driver, nil
 }
 
+func (d *HypervPS4Driver) IsRunning(vmName string) (bool, error) {
+	return hyperv.IsRunning(vmName);
+}
+
+
+	// Start starts a VM specified by the name given.
+func (d *HypervPS4Driver) Start(vmName string) error {
+	return hyperv.Start(vmName);
+}
+
+	// Stop stops a VM specified by the name given.
+func (d *HypervPS4Driver) Stop(vmName string) error {
+	return hyperv.TurnOff(vmName);
+}
+
+
 func (d *HypervPS4Driver) Verify() error {
 
 	if err := d.verifyPSVersion(); err != nil {
@@ -56,9 +73,9 @@ func (d *HypervPS4Driver) verifyPSVersion() error {
 	log.Printf("Enter method: %s", "verifyPSVersion")
 	// check PS is available and is of proper version
 	versionCmd := "$host.version.Major"
-	powershell  := new(powershell.PowerShellCmd)
 
-	cmdOut, err := powershell.Output(versionCmd)
+	var ps powershell.PowerShellCmd
+	cmdOut, err := ps.Output(versionCmd)
 	if err != nil {
 		return err
 	}
@@ -86,9 +103,8 @@ func (d *HypervPS4Driver) verifyPSHypervModule() error {
 
 	versionCmd := "function foo(){try{ $commands = Get-Command -Module Hyper-V;if($commands.Length -eq 0){return $false} }catch{return $false}; return $true} foo"
 
-
-	powershell  := new(powershell.PowerShellCmd)
-	cmdOut, err := powershell.Output(versionCmd)
+	var ps powershell.PowerShellCmd
+	cmdOut, err := ps.Output(versionCmd)
 	if err != nil {
 		return err
 	}

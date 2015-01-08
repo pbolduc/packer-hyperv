@@ -343,3 +343,62 @@ Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $switchName -Untagg
   err := ps.Run(script, vmName, switchName)
   return err
 }
+
+func IsRunning(vmName string) (bool, error) {
+
+  var script  = `
+param([string]$vmName)
+$vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+$vm.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running
+`
+
+  var ps powershell.PowerShellCmd
+  cmdOut, err := ps.Output(script, vmName)
+  var isRunning = strings.TrimSpace(cmdOut) == "True"
+  return isRunning, err
+}
+
+func Start(vmName string) error {
+
+  var script  = `
+param([string]$vmName)
+$vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+if ($vm.State -eq [Microsoft.HyperV.PowerShell.VMState]::Off) {
+  Start-VM –Name $vmName
+}
+`
+
+  var ps powershell.PowerShellCmd
+  err := ps.Run(script, vmName)
+  return err
+}
+
+func TurnOff(vmName string) error {
+
+  var script  = `
+param([string]$vmName)
+$vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+if ($vm.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running) {
+  Stop-VM -Name $vmName -TurnOff
+}
+`
+
+  var ps powershell.PowerShellCmd
+  err := ps.Run(script, vmName)
+  return err
+}
+
+func ShutDown(vmName string) error {
+
+  var script  = `
+param([string]$vmName)
+$vm = Get-VM -Name $vmName -ErrorAction SilentlyContinue
+if ($vm.State -eq [Microsoft.HyperV.PowerShell.VMState]::Running) {
+  Stop-VM –Name $vmName
+}
+`
+
+  var ps powershell.PowerShellCmd
+  err := ps.Run(script, vmName)
+  return err
+}

@@ -91,6 +91,7 @@ type config struct {
 	common.PackerConfig           			`mapstructure:",squash"`
 	hypervcommon.OutputConfig               `mapstructure:",squash"`
 	hypervcommon.SSHConfig                  `mapstructure:",squash"`
+	hypervcommon.ShutdownConfig             `mapstructure:",squash"`
 
 	SwitchName          string 				`mapstructure:"switch_name"`
 
@@ -126,7 +127,8 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	errs := common.CheckUnusedConfig(md)
 	errs = packer.MultiErrorAppend(errs, b.config.OutputConfig.Prepare(b.config.tpl, &b.config.PackerConfig)...)
 	errs = packer.MultiErrorAppend(errs, b.config.SSHConfig.Prepare(b.config.tpl)...)
-	
+	errs = packer.MultiErrorAppend(errs, b.config.ShutdownConfig.Prepare(b.config.tpl)...)
+
 	warnings := make([]string, 0)
 
 	err = b.checkDiskSize()
@@ -138,12 +140,6 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	if err != nil {
 		errs = packer.MultiErrorAppend(errs, err)
 	}
-
-	warning := b.checkHostAvailableMemory()
-	if warning != "" {
-		warnings = appendWarnings(warnings, warning)
-	}
-
 
 	if b.config.VMName == "" {
 		b.config.VMName = fmt.Sprintf("pvm_%s", uuid.New())
@@ -201,7 +197,6 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	log.Println(fmt.Sprintf("%s: %v","ProductKey", b.config.ProductKey))
 	log.Println(fmt.Sprintf("%s: %v","Communicator", b.config.Communicator))
 
-
 	if b.config.RawSingleISOUrl == "" {
 		errs = packer.MultiErrorAppend(errs, errors.New("iso_url: The option can't be missed and a path must be specified."))
 	} else if _, err := os.Stat(b.config.RawSingleISOUrl); err != nil {
@@ -211,6 +206,18 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	log.Println(fmt.Sprintf("%s: %v","RawSingleISOUrl", b.config.RawSingleISOUrl))
 
 	b.config.SSHWaitTimeout, err = time.ParseDuration(b.config.RawSSHWaitTimeout)
+
+	// Warnings
+	warning := b.checkHostAvailableMemory()
+	if warning != "" {
+		warnings = appendWarnings(warnings, warning)
+	}
+
+	if b.config.ShutdownCommand == "" {
+		warnings = append(warnings,
+			"A shutdown_command was not specified. Without a shutdown command, Packer\n"+
+				"will forcibly halt the virtual machine, which may result in data loss.")
+	}
 
 	if errs != nil && len(errs.Errors) > 0 {
 		return warnings, errs
@@ -305,7 +312,13 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 
 		&hypervcommon.StepUnmountFloppyDrive{},
 		&hypervcommon.StepUnmountDvdDrive{},
-		&hypervcommon.StepStopVm{},
+		
+		//&hypervcommon.StepStopVm{},
+		&hypervcommon.StepShutdown{
+			Command: b.config.ShutdownCommand,
+			Timeout: b.config.ShutdownTimeout,
+		},
+
 		&hypervcommon.StepExportVm{
 			OutputDir: b.config.OutputDir,
 		},
