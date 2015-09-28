@@ -6,17 +6,18 @@ package common
 
 import (
 	"fmt"
+	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/packer"
-	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
 )
 
+//const (
+//	vlanId = "130"
+//)
 
-const(
-	vlanId = "1724"
-)
-
+//* added block
 type StepConfigureVlan struct {
+	VlanID string
 }
 
 func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
@@ -26,19 +27,24 @@ func (s *StepConfigureVlan) Run(state multistep.StateBag) multistep.StepAction {
 
 	errorMsg := "Error configuring vlan: %s"
 	vmName := state.Get("vmName").(string)
-	switchName := state.Get("SwitchName").(string)
+	//switchName := state.Get("SwitchName").(string)
 
 	ui.Say("Configuring vlan...")
 
-	err := hyperv.SetNetworkAdapterVlanId(switchName, vlanId)
+	/*err := hyperv.SetNetworkAdapterVlanId(switchName, vlanId)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
 		ui.Error(err.Error())
 		return multistep.ActionHalt
+	}*/
+	//* added block
+	if s.VlanID == "" {
+		ui.Say("Coundn't config vlan ... ")
 	}
-
-	err = hyperv.SetVirtualMachineVlanId(vmName, vlanId)
+	// change vlad param
+	//err := hyperv.SetVirtualMachineVlanId(vmName, vlanId)
+	err := hyperv.SetVirtualMachineVlanId(vmName, s.VlanID)
 	if err != nil {
 		err := fmt.Errorf(errorMsg, err)
 		state.Put("error", err)
