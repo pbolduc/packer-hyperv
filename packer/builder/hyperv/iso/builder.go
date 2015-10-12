@@ -5,35 +5,35 @@
 package iso
 
 import (
+	"code.google.com/p/go-uuid/uuid"
 	"errors"
 	"fmt"
-	"log"
-	"os"
-	"time"
-	"github.com/mitchellh/multistep"
-	hypervcommon "github.com/MSOpenTech/packer-hyperv/packer/builder/hyperv/common"
 	powershell "github.com/MSOpenTech/packer-hyperv/packer/powershell"
 	"github.com/MSOpenTech/packer-hyperv/packer/powershell/hyperv"
+	"github.com/mitchellh/multistep"
 	"github.com/mitchellh/packer/common"
 	"github.com/mitchellh/packer/packer"
+	hypervcommon "hyperv/common"
+	"log"
+	"os"
 	"regexp"
-	"code.google.com/p/go-uuid/uuid"
 	"strings"
+	"time"
 )
 
 const (
-	DefaultDiskSize = 127 * 1024	// 127GB
-	MinDiskSize = 10 * 1024			// 10GB
-	MaxDiskSize = 65536 * 1024		// 64TB
+	DefaultDiskSize = 127 * 1024   // 127GB
+	MinDiskSize     = 10 * 1024    // 10GB
+	MaxDiskSize     = 65536 * 1024 // 64TB
 
-	DefaultRamSize = 1024	// 1GB
-	MinRamSize = 512		// 512MB
-	MaxRamSize = 32768 		// 32GB
+	DefaultRamSize = 1024  // 1GB
+	MinRamSize     = 512   // 512MB
+	MaxRamSize     = 32768 // 32GB
 
 	LowRam = 512 // 512MB
 
-	DefaultUsername = "vagrant"
-	DefaultPassword = "vagrant"
+	//DefaultUsername = "vagrant1"
+	//DefaultPassword = "vagrant1"
 )
 
 // Builder implements packer.Builder and builds the actual Hyperv
@@ -44,66 +44,69 @@ type Builder struct {
 }
 
 type config struct {
-	// The size, in megabytes, of the hard disk to create for the VM. 
+	// The size, in megabytes, of the hard disk to create for the VM.
 	// By default, this is 130048 (about 127 GB).
-	DiskSize            uint     			`mapstructure:"disk_size"`
-	// The size, in megabytes, of the computer memory in the VM. 
+	DiskSize uint `mapstructure:"disk_size"`
+	// The size, in megabytes, of the computer memory in the VM.
 	// By default, this is 1024 (about 1 GB).
-	RamSizeMB           uint     			`mapstructure:"ram_size_mb"`
-	// A list of files to place onto a floppy disk that is attached when the 
-	// VM is booted. This is most useful for unattended Windows installs, 
-	// which look for an Autounattend.xml file on removable media. By default, 
-	// no floppy will be attached. All files listed in this setting get 
-	// placed into the root directory of the floppy and the floppy is attached 
-	// as the first floppy device. Currently, no support exists for creating 
-	// sub-directories on the floppy. Wildcard characters (*, ?, and []) 
-	// are allowed. Directory names are also allowed, which will add all 
+	RamSizeMB uint `mapstructure:"ram_size_mb"`
+	// A list of files to place onto a floppy disk that is attached when the
+	// VM is booted. This is most useful for unattended Windows installs,
+	// which look for an Autounattend.xml file on removable media. By default,
+	// no floppy will be attached. All files listed in this setting get
+	// placed into the root directory of the floppy and the floppy is attached
+	// as the first floppy device. Currently, no support exists for creating
+	// sub-directories on the floppy. Wildcard characters (*, ?, and [])
+	// are allowed. Directory names are also allowed, which will add all
 	// the files found in the directory to the floppy.
-	FloppyFiles         []string            `mapstructure:"floppy_files"`
+	FloppyFiles []string `mapstructure:"floppy_files"`
 	//
-	SecondaryDvdImages  []string            `mapstructure:"secondary_iso_images"`
-	// The checksum for the OS ISO file. Because ISO files are so large, 
-	// this is required and Packer will verify it prior to booting a virtual 
-	// machine with the ISO attached. The type of the checksum is specified 
+	SecondaryDvdImages []string `mapstructure:"secondary_iso_images"`
+	// The checksum for the OS ISO file. Because ISO files are so large,
+	// this is required and Packer will verify it prior to booting a virtual
+	// machine with the ISO attached. The type of the checksum is specified
 	// with iso_checksum_type, documented below.
-	ISOChecksum         string              `mapstructure:"iso_checksum"`
-	// The type of the checksum specified in iso_checksum. Valid values are 
-	// "none", "md5", "sha1", "sha256", or "sha512" currently. While "none" 
-	// will skip checksumming, this is not recommended since ISO files are 
+	ISOChecksum string `mapstructure:"iso_checksum"`
+	// The type of the checksum specified in iso_checksum. Valid values are
+	// "none", "md5", "sha1", "sha256", or "sha512" currently. While "none"
+	// will skip checksumming, this is not recommended since ISO files are
 	// generally large and corruption does happen from time to time.
-	ISOChecksumType     string              `mapstructure:"iso_checksum_type"`
-	// A URL to the ISO containing the installation image. This URL can be 
-	// either an HTTP URL or a file URL (or path to a file). If this is an 
+	ISOChecksumType string `mapstructure:"iso_checksum_type"`
+	// A URL to the ISO containing the installation image. This URL can be
+	// either an HTTP URL or a file URL (or path to a file). If this is an
 	// HTTP URL, Packer will download it and cache it between runs.
-	RawSingleISOUrl 	string 				`mapstructure:"iso_url"`
-	// Multiple URLs for the ISO to download. Packer will try these in order. 
-	// If anything goes wrong attempting to download or while downloading a 
-	// single URL, it will move on to the next. All URLs must point to the 
-	// same file (same checksum). By default this is empty and iso_url is 
+	RawSingleISOUrl string `mapstructure:"iso_url"`
+	// Multiple URLs for the ISO to download. Packer will try these in order.
+	// If anything goes wrong attempting to download or while downloading a
+	// single URL, it will move on to the next. All URLs must point to the
+	// same file (same checksum). By default this is empty and iso_url is
 	// used. Only one of iso_url or iso_urls can be specified.
-	ISOUrls             []string            `mapstructure:"iso_urls"`
-	// This is the name of the new virtual machine. 
+	ISOUrls []string `mapstructure:"iso_urls"`
+	// This is the name of the new virtual machine.
 	// By default this is "packer-BUILDNAME", where "BUILDNAME" is the name of the build.
-	VMName              string              `mapstructure:"vm_name"`
+	VMName string `mapstructure:"vm_name"`
+	//user and password strings from config
+	ProductKey string `mapstructure:"product_key"`
 
-	ProductKey 			string				`mapstructure:"product_key"`
+	common.PackerConfig         `mapstructure:",squash"`
+	hypervcommon.OutputConfig   `mapstructure:",squash"`
+	hypervcommon.SSHConfig      `mapstructure:",squash"`
+	hypervcommon.ShutdownConfig `mapstructure:",squash"`
+	VlanID                      string `mapstructure:"VlanID"`
+	SwitchName                  string `mapstructure:"switch_name"`
 
-	common.PackerConfig           			`mapstructure:",squash"`
-	hypervcommon.OutputConfig               `mapstructure:",squash"`
-	hypervcommon.SSHConfig                  `mapstructure:",squash"`
-	hypervcommon.ShutdownConfig             `mapstructure:",squash"`
+	//Username string `mapstructure:"Username"`
+	//Password string `mapstructure:"Password"`
 
-	SwitchName          string 				`mapstructure:"switch_name"`
-
-	Communicator        string              `mapstructure:"communicator"`
+	Communicator string `mapstructure:"communicator"`
 
 	// The time in seconds to wait for the virtual machine to report an IP address.
 	// This defaults to 120 seconds. This may have to be increased if your VM takes longer to boot.
-	IPAddressTimeout    time.Duration       `mapstructure:"ip_address_timeout"`
+	IPAddressTimeout time.Duration `mapstructure:"ip_address_timeout"`
 
-	SSHWaitTimeout      time.Duration
+	SSHWaitTimeout time.Duration
 
-	tpl                 *packer.ConfigTemplate
+	tpl *packer.ConfigTemplate
 }
 
 // Prepare processes the build configuration parameters.
@@ -148,7 +151,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 	if b.config.SwitchName == "" {
 		// no switch name, try to get one attached to a online network adapter
 		onlineSwitchName, err := hyperv.GetExternalOnlineVirtualSwitch()
-		if onlineSwitchName == "" || err != nil{
+		if onlineSwitchName == "" || err != nil {
 			b.config.SwitchName = fmt.Sprintf("pis_%s", uuid.New())
 		} else {
 			b.config.SwitchName = onlineSwitchName
@@ -168,8 +171,8 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 
 	// Errors
 	templates := map[string]*string{
-		"iso_url":            &b.config.RawSingleISOUrl,
-		"product_key":        &b.config.ProductKey,
+		"iso_url":     &b.config.RawSingleISOUrl,
+		"product_key": &b.config.ProductKey,
 	}
 
 	for n, ptr := range templates {
@@ -192,10 +195,10 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 		}
 	}
 
-	log.Println(fmt.Sprintf("%s: %v","VMName", b.config.VMName))
-	log.Println(fmt.Sprintf("%s: %v","SwitchName", b.config.SwitchName))
-	log.Println(fmt.Sprintf("%s: %v","ProductKey", b.config.ProductKey))
-	log.Println(fmt.Sprintf("%s: %v","Communicator", b.config.Communicator))
+	log.Println(fmt.Sprintf("%s: %v", "VMName", b.config.VMName))
+	log.Println(fmt.Sprintf("%s: %v", "SwitchName", b.config.SwitchName))
+	log.Println(fmt.Sprintf("%s: %v", "ProductKey", b.config.ProductKey))
+	log.Println(fmt.Sprintf("%s: %v", "Communicator", b.config.Communicator))
 
 	if b.config.RawSingleISOUrl == "" {
 		errs = packer.MultiErrorAppend(errs, errors.New("iso_url: The option can't be missed and a path must be specified."))
@@ -203,7 +206,7 @@ func (b *Builder) Prepare(raws ...interface{}) ([]string, error) {
 		errs = packer.MultiErrorAppend(errs, errors.New("iso_url: Check the path is correct"))
 	}
 
-	log.Println(fmt.Sprintf("%s: %v","RawSingleISOUrl", b.config.RawSingleISOUrl))
+	log.Println(fmt.Sprintf("%s: %v", "RawSingleISOUrl", b.config.RawSingleISOUrl))
 
 	b.config.SSHWaitTimeout, err = time.ParseDuration(b.config.RawSSHWaitTimeout)
 
@@ -249,7 +252,7 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 			Path:  b.config.OutputDir,
 		},
 		&hypervcommon.StepSetUnattendedProductKey{
-			Files: b.config.FloppyFiles,
+			Files:      b.config.FloppyFiles,
 			ProductKey: b.config.ProductKey,
 		},
 		&common.StepCreateFloppy{
@@ -259,10 +262,13 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 			SwitchName: b.config.SwitchName,
 		},
 		&hypervcommon.StepCreateVM{
-			VMName: b.config.VMName,
+			VMName:     b.config.VMName,
 			SwitchName: b.config.SwitchName,
-			RamSizeMB: b.config.RamSizeMB,
-			DiskSize: b.config.DiskSize,
+			RamSizeMB:  b.config.RamSizeMB,
+			DiskSize:   b.config.DiskSize,
+		},
+		&hypervcommon.StepConfigureVlan{
+			VlanID: b.config.VlanID,
 		},
 		&hypervcommon.StepEnableIntegrationService{},
 
@@ -289,7 +295,7 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 
 		//
 		&hypervcommon.StepStartVm{
-			Reason: "provisioning",
+			Reason:       "provisioning",
 			StartUpDelay: 60,
 		},
 
@@ -298,21 +304,21 @@ func (b *Builder) Run(ui packer.Ui, hook packer.Hook, cache packer.Cache) (packe
 
 		// new(hypervcommon.StepConfigureIp),
 
-		// &hypervcommon.StepSetRemoting{
-		// 	Username: DefaultUsername,
-		// 	Password: DefaultPassword,
-		// },
+		//&hypervcommon.StepSetRemoting{
+		//	Username: b.config.Username,
+		//	Password: b.config.Password,
+		//},
 
 		// &hypervcommon.StepCheckRemoting{},
 
 		// provision requires communicator to be setup
 		&common.StepProvision{},
-		
+
 		//new(StepSysprep),
 
 		&hypervcommon.StepUnmountFloppyDrive{},
 		&hypervcommon.StepUnmountDvdDrive{},
-		
+
 		//&hypervcommon.StepStopVm{},
 		&hypervcommon.StepShutdown{
 			Command: b.config.ShutdownCommand,
@@ -383,7 +389,7 @@ func (b *Builder) checkDiskSize() error {
 
 	log.Println(fmt.Sprintf("%s: %v", "DiskSize", b.config.DiskSize))
 
-	if(b.config.DiskSize < MinDiskSize ){
+	if b.config.DiskSize < MinDiskSize {
 		return fmt.Errorf("disk_size_gb: Windows server requires disk space >= %v GB, but defined: %v", MinDiskSize, b.config.DiskSize/1024)
 	} else if b.config.DiskSize > MaxDiskSize {
 		return fmt.Errorf("disk_size_gb: Windows server requires disk space <= %v GB, but defined: %v", MaxDiskSize, b.config.DiskSize/1024)
@@ -399,7 +405,7 @@ func (b *Builder) checkRamSize() error {
 
 	log.Println(fmt.Sprintf("%s: %v", "RamSize", b.config.RamSizeMB))
 
-	if(b.config.RamSizeMB < MinRamSize ){
+	if b.config.RamSizeMB < MinRamSize {
 		return fmt.Errorf("ram_size_mb: Windows server requires memory size >= %v MB, but defined: %v", MinRamSize, b.config.RamSizeMB)
 	} else if b.config.RamSizeMB > MaxRamSize {
 		return fmt.Errorf("ram_size_mb: Windows server requires memory size <= %v MB, but defined: %v", MaxRamSize, b.config.RamSizeMB)
@@ -409,7 +415,7 @@ func (b *Builder) checkRamSize() error {
 }
 
 func (b *Builder) checkHostAvailableMemory() string {
-	freeMB := powershell.  GetHostAvailableMemory()
+	freeMB := powershell.GetHostAvailableMemory()
 
 	if (freeMB - float64(b.config.RamSizeMB)) < LowRam {
 		return fmt.Sprintf("Hyper-V might fail to create a VM if there is not enough free memory in the system.")
@@ -422,16 +428,16 @@ func (b *Builder) getCommunicatorStep(config config) multistep.Step {
 
 	if b.config.Communicator == "ssh" {
 		return &common.StepConnectSSH{
-				SSHAddress:     hypervcommon.SSHAddress,
-				SSHConfig:      hypervcommon.SSHConfigFunc(b.config.SSHConfig),
-				SSHWaitTimeout:  config.SSHWaitTimeout,
-			}
+			SSHAddress:     hypervcommon.SSHAddress,
+			SSHConfig:      hypervcommon.SSHConfigFunc(b.config.SSHConfig),
+			SSHWaitTimeout: config.SSHWaitTimeout,
+		}
 	} else {
 		// TODO: should be WinRM
 		return &common.StepConnectSSH{
-				SSHAddress:     hypervcommon.SSHAddress,
-				SSHConfig:      hypervcommon.SSHConfigFunc(b.config.SSHConfig),
-				SSHWaitTimeout:  config.SSHWaitTimeout,
-			}
+			SSHAddress:     hypervcommon.SSHAddress,
+			SSHConfig:      hypervcommon.SSHConfigFunc(b.config.SSHConfig),
+			SSHWaitTimeout: config.SSHWaitTimeout,
+		}
 	}
 }
