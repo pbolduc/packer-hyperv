@@ -1,3 +1,13 @@
+2015-10-24 Update
+=================
+
+I would recommend anyone interested in using Hyper-V with Packer take a look at the great
+work [Taliesin Sisson](https://github.com/taliesins) did to take my changes and bring it
+up standards so that it can be merged into the main Packer solution. 
+
+[Hyper-V builder for Packer pull request](https://github.com/mitchellh/packer/pull/2576)
+
+
 packer-hyperv
 =============
 
